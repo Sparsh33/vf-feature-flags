@@ -16,14 +16,43 @@ class LoggingData:
     error: Optional[BaseException] = None
 
 
+_RESERVED_LOG_RECORD_ATTRS = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "message",
+    "asctime",
+}
+
+
 def _enrich(data: LoggingData) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
-        "message": data.message,
         "request_id": RequestContextManager.get_request_id(),
         "user_id": RequestContextManager.get_user_id(),
         "client_id": RequestContextManager.get_client_id(),
     }
-    payload.update(data.context)
+    for key, value in data.context.items():
+        if key in _RESERVED_LOG_RECORD_ATTRS:
+            payload[f"ctx_{key}"] = value
+        else:
+            payload[key] = value
     return payload
 
 

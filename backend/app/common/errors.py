@@ -55,3 +55,31 @@ class ConflictError(AppError):
 
 class DuplicateFlagKey(ConflictError):
     pass
+
+
+class FlagAlreadyExists(ConflictError):
+    pass
+
+
+class DuplicateEmail(ConflictError):
+    pass
+
+
+class AuditError(AppError):
+    pass
+
+
+class AnalyticsError(AppError):
+    pass
+
+
+class NLSessionError(AppError):
+    pass
+
+
+class NLSessionNotFound(NotFoundError):
+    pass
+
+
+class EvalError(AppError):
+    pass

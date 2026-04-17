@@ -1,30 +1,128 @@
+import * as React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
-function Placeholder({ title }: { title: string }) {
+import { AppShell } from "@/components/layout/AppShell";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { useAuth } from "@/hooks/useAuth";
+import LoginPage from "@/pages/auth/LoginPage";
+import SignupPage from "@/pages/auth/SignupPage";
+import FlagEditorPage from "@/pages/flags/FlagEditorPage";
+import FlagsListPage from "@/pages/flags/FlagsListPage";
+import SettingsPage from "@/pages/settings/SettingsPage";
+
+// Agent H pages — lazy-loaded so missing files don't break the build.
+const NLChatPage = React.lazy(() => import("@/pages/chat/NLChatPage"));
+const AnalyticsOverviewPage = React.lazy(
+  () => import("@/pages/analytics/AnalyticsOverviewPage")
+);
+const FlagAnalyticsPage = React.lazy(
+  () => import("@/pages/analytics/FlagAnalyticsPage")
+);
+const AuditLogPage = React.lazy(() => import("@/pages/audit/AuditLogPage"));
+
+function RootRedirect() {
+  const { token } = useAuth();
+  return <Navigate to={token ? "/flags" : "/login"} replace />;
+}
+
+function LazyPage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Phase 2 agents will implement this page.
-        </p>
-      </div>
-    </div>
+    <React.Suspense
+      fallback={
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      }
+    >
+      <LazyErrorBoundary>{children}</LazyErrorBoundary>
+    </React.Suspense>
   );
+}
+
+interface LazyErrorBoundaryState {
+  error: Error | null;
+}
+
+class LazyErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  LazyErrorBoundaryState
+> {
+  state: LazyErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): LazyErrorBoundaryState {
+    return { error };
+  }
+
+  render(): React.ReactNode {
+    if (this.state.error) {
+      return (
+        <div className="p-8 text-center text-sm text-muted-foreground">
+          This page isn&apos;t available yet.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/flags" replace />} />
-      <Route path="/login" element={<Placeholder title="Login" />} />
-      <Route path="/signup" element={<Placeholder title="Signup" />} />
-      <Route path="/flags" element={<Placeholder title="Flags" />} />
-      <Route path="/flags/:id" element={<Placeholder title="Flag Detail" />} />
-      <Route path="/chat" element={<Placeholder title="NL Chat" />} />
-      <Route path="/analytics" element={<Placeholder title="Analytics" />} />
-      <Route path="/audit" element={<Placeholder title="Audit" />} />
-      <Route path="*" element={<Placeholder title="Not Found" />} />
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/flags" element={<FlagsListPage />} />
+        <Route path="/flags/new" element={<FlagEditorPage />} />
+        <Route path="/flags/:id" element={<FlagEditorPage />} />
+        <Route
+          path="/flags/:id/analytics"
+          element={
+            <LazyPage>
+              <FlagAnalyticsPage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <LazyPage>
+              <NLChatPage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <LazyPage>
+              <AnalyticsOverviewPage />
+            </LazyPage>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <LazyPage>
+              <AuditLogPage />
+            </LazyPage>
+          }
+        />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+      <Route
+        path="*"
+        element={
+          <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+            Not found.
+          </div>
+        }
+      />
     </Routes>
   );
 }

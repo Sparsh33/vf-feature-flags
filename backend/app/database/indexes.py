@@ -22,4 +22,6 @@ async def ensure_all_indexes() -> None:
         try:
             await builder()
         except Exception as exc:
-            logger.warning("Index builder %s failed: %s", getattr(builder, "__name__", builder), exc)
+            logger.warning(
+                "Index builder %s failed: %s", getattr(builder, "__name__", builder), exc
+            )
