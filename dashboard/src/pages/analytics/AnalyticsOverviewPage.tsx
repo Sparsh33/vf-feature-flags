@@ -46,7 +46,7 @@ export default function AnalyticsOverviewPage(): JSX.Element {
   const totalFlags = flags.length;
   const totalEvals = analyticsQueries.reduce(
     (acc, query) => acc + (query.data?.total_requests ?? 0),
-    0
+    0,
   );
   const combinedCohorts = useMemo(() => {
     const map = new Map<string, { count: number }>();
@@ -58,7 +58,10 @@ export default function AnalyticsOverviewPage(): JSX.Element {
         map.set(label, { count: existing + stat.count });
       }
     }
-    const totalCount = Array.from(map.values()).reduce((acc, v) => acc + v.count, 0);
+    const totalCount = Array.from(map.values()).reduce(
+      (acc, v) => acc + v.count,
+      0,
+    );
     return Array.from(map.entries()).map(([label, { count }]) => ({
       cohort_name: label,
       count,
@@ -98,7 +101,9 @@ export default function AnalyticsOverviewPage(): JSX.Element {
     <div className="flex flex-col gap-6 p-6">
       <div>
         <h1 className="text-xl font-semibold">Analytics overview</h1>
-        <p className="text-xs text-muted-foreground">Last 24 hours, all flags.</p>
+        <p className="text-xs text-muted-foreground">
+          Last 24 hours, all flags.
+        </p>
       </div>
       <StatsCards
         items={[
@@ -113,7 +118,9 @@ export default function AnalyticsOverviewPage(): JSX.Element {
       />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Evals per cohort (all flags)</h2>
+          <h2 className="mb-3 text-sm font-semibold">
+            Evals per cohort (all flags)
+          </h2>
           <CohortBarChart data={combinedCohorts} />
         </div>
         <div className="rounded-lg border bg-card p-4">
@@ -135,8 +142,10 @@ export default function AnalyticsOverviewPage(): JSX.Element {
                   return (
                     <tr key={flag.id} className="border-b last:border-0">
                       <td className="py-2">
-                        <div className="font-mono text-xs">{flag.key}</div>
-                        <div className="text-xs text-muted-foreground">{flag.name}</div>
+                        <div className="font-mono text-xs">{flag.flag_key}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {flag.name}
+                        </div>
                       </td>
                       <td className="py-2 tabular-nums">
                         {analytics?.total_requests?.toLocaleString() ?? "—"}
@@ -151,7 +160,9 @@ export default function AnalyticsOverviewPage(): JSX.Element {
                             />
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </td>
                       <td className="py-2">

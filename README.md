@@ -15,10 +15,7 @@ A feature-flag SaaS with a FastAPI backend, Celery worker, MongoDB + Redis, and 
    - [Unit tests](#unit-tests)
 5. [API reference (cheat sheet)](#api-reference-cheat-sheet)
 6. [Configuration](#configuration)
-7. [Deployment](#deployment)
-   - [Frontend on Vercel](#frontend-on-vercel)
-   - [Backend deployment options](#backend-deployment-options)
-   - [Why not the full stack on Vercel](#why-not-the-full-stack-on-vercel)
+7. [Deployment — Docker only](#deployment--docker-only)
 8. [Troubleshooting](#troubleshooting)
 
 ---
@@ -67,33 +64,37 @@ A feature-flag SaaS with a FastAPI backend, Celery worker, MongoDB + Redis, and 
 
 ## Requirements
 
-| Tool | Version | Purpose |
-|---|---|---|
-| Docker Desktop | 20+ | runs the whole stack |
-| [Ollama](https://ollama.com) | 0.3.0+ | local LLM for the NL chatbot |
-| Node | 20+ | only needed if running dashboard outside Docker |
-| Python | 3.12 | only needed if running backend outside Docker |
+**The only thing you need is Docker.** Ollama, the LLM model, Mongo, Redis — everything else runs as compose services. First-run will pull the `llama3.1:8b` model automatically (~4.7 GB, one-time download).
 
-Ollama runs **on the host machine**, not inside docker-compose. The API container reaches it via `host.docker.internal:11434`.
+| Tool | Required? | Notes |
+|---|---|---|
+| Docker Desktop | ✅ yes | 20+ with Docker Compose v2 |
+| Node / Python / Ollama on host | ❌ no | all bundled as compose services |
+
+> **Heads up:** Ollama inside Docker on macOS/Windows runs **CPU-only** (no Metal/GPU). Fine for correctness; NL turns take 10-30s per reply. For Linux hosts with NVIDIA GPUs, add `deploy.resources.reservations.devices: [{driver: nvidia, count: 1, capabilities: [gpu]}]` under the `ollama` service.
 
 ---
 
 ## Local quick start
 
 ```bash
-# 1. clone + env
-git clone <this-repo> vf-feature-flags
+git clone https://github.com/Sparsh33/vf-feature-flags.git
 cd vf-feature-flags
-cp .env.example .env
+docker-compose up -d         # that's it.
+```
 
-# 2. Ollama (one-time) — ~4.7 GB download
-brew install ollama
-ollama serve &                 # starts on :11434
-ollama pull llama3.1:8b        # tool-call capable model
+First run takes a while — it builds backend + dashboard images and pulls the Ollama model (~4.7 GB). Follow along:
 
-# 3. Stack
-docker-compose up -d
-docker-compose ps              # verify all services healthy
+```bash
+docker-compose logs -f ollama-init   # watch the model pull
+docker-compose ps                     # all services should be healthy
+```
+
+**Optional** — customize defaults (JWT secret, model, CORS origins, etc.):
+
+```bash
+cp .env.example .env      # edit any values you want to override
+docker-compose up -d      # re-reads .env automatically
 ```
 
 Open:
@@ -264,95 +265,102 @@ All via `.env` (see `.env.example` for the canonical list).
 
 ---
 
-## Deployment
+## Deployment — Docker only
 
-The split is important: the **dashboard** deploys cleanly to Vercel as a static SPA. The **backend** does not — it requires a persistent Python process, a Celery worker, MongoDB, Redis, and a GPU/CPU runtime for Ollama. Deploy the backend to a platform that runs long-lived containers.
+The entire stack ships as Docker containers. `docker-compose.yml` is the single source of truth for both local development and production-like environments. Nothing special is required to "deploy" — run the same compose file on any host with Docker Engine.
 
-### Frontend on Vercel
+### Services
 
-The `dashboard/` folder is a standard Vite project. Two deployment modes:
+| Service | Image / Build | Ports | Role |
+|---|---|---|---|
+| `api` | built from `backend/Dockerfile` | 8000 | FastAPI, uvicorn with auto-reload for local |
+| `worker` | same image as `api` (overridden command) | — | Celery worker; picks up audit + analytics tasks |
+| `dashboard` | built from `dashboard/Dockerfile` | 5173 | Vite dev server (SPA) |
+| `mongo` | `mongo:7` | 27017 | primary datastore; `mongo_data` volume |
+| `redis` | `redis:7-alpine` | 6379 | cache + Celery broker; `redis_data` volume |
 
-**Option A — Vercel CLI from the repo**
+Ollama runs **on the host**, not in compose. The `api` container reaches it via `host.docker.internal:11434`.
+
+### Local / single-host production
 
 ```bash
-npm i -g vercel
-cd dashboard
-vercel link          # first time: create new project
-vercel env add VITE_API_BASE_URL production   # e.g. https://api.yourdomain.com
-vercel --prod
+# one-time setup
+cp .env.example .env
+# edit .env — at minimum set JWT_SECRET and CORS_ORIGINS
+
+# install Ollama on the host
+brew install ollama             # macOS; use the Ollama installer on Linux
+ollama serve &
+ollama pull llama3.1:8b         # ~4.7 GB, tool-call capable
+
+# bring up the stack
+docker-compose up -d --build
+docker-compose ps               # all services should be healthy
 ```
 
-**Option B — Git integration (recommended)**
+Dashboard: http://localhost:5173 · API: http://localhost:8000/docs · Health: http://localhost:8000/health
 
-1. Push the repo to GitHub.
-2. Go to https://vercel.com/new → import the repo.
-3. Under "Root Directory" choose `dashboard`.
-4. Framework: Vercel auto-detects Vite.
-5. Build command: `npm run build` · Output: `dist`.
-6. Environment variable: `VITE_API_BASE_URL=https://api.yourdomain.com`.
-7. Deploy.
+### Production hardening checklist
 
-**Required source change** (one line): `dashboard/src/lib/api.ts` currently points at `/api` and relies on Vite's dev proxy. For Vercel, point axios at `import.meta.env.VITE_API_BASE_URL`:
+For anything past local dev, edit `docker-compose.yml` or create an override file (`docker-compose.prod.yml`) with these changes:
 
-```ts
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-});
+1. **Replace dev commands with production ones**:
+   - `api.command: uvicorn main:app --host 0.0.0.0 --workers 4` (drop `--reload`)
+   - `dashboard` should build once and serve via nginx instead of `npm run dev`. See `dashboard/Dockerfile.prod` pattern:
+     ```dockerfile
+     FROM node:20-alpine AS build
+     WORKDIR /app
+     COPY package*.json ./
+     RUN npm ci
+     COPY . .
+     RUN npm run build
+     FROM nginx:alpine
+     COPY --from=build /app/dist /usr/share/nginx/html
+     COPY nginx.conf /etc/nginx/conf.d/default.conf
+     ```
+     with an `nginx.conf` that proxies `/api/**` → `http://api:8000` and does SPA fallback (`try_files $uri /index.html`).
+2. **Mount volumes correctly**:
+   - Remove the `./backend:/app` bind mount used for hot-reload.
+3. **Secrets via env file or Docker secrets** — never commit `.env`.
+4. **Reverse proxy / TLS**: put Caddy or Traefik in front of the compose network; point it at `api:8000` and `dashboard:80`. Caddy example:
+   ```
+   api.example.com { reverse_proxy api:8000 }
+   app.example.com { reverse_proxy dashboard:80 }
+   ```
+5. **Resource limits** — add `deploy.resources` per service.
+6. **Healthchecks** already defined for mongo + redis; add one for `api` hitting `/health`.
+7. **Log aggregation** — point Docker's `--log-driver=json-file` or ship to your preferred aggregator.
+
+### Ollama in production
+
+Two options, pick based on where you're hosting:
+
+- **Host-native** (same as local) — Ollama runs on the host OS, api container reaches it via `extra_hosts: ["host.docker.internal:host-gateway"]` on Linux.
+- **Sidecar container** — add an `ollama/ollama` service to compose with a GPU-enabled runtime (`deploy.resources.reservations.devices`), volume-mount `/root/.ollama` for model storage. Point `OLLAMA_BASE_URL=http://ollama:11434` in `.env`. Initial model pull must be done via `docker-compose exec ollama ollama pull llama3.1:8b`.
+
+### What `docker-compose up -d` does end-to-end
+
+```
+┌─────────────────────────────────────────────┐
+│  docker-compose up -d                        │
+├─────────────────────────────────────────────┤
+│  1. Build api/worker/dashboard images       │
+│  2. Start mongo, redis → wait for healthy   │
+│  3. Start api (lifespan: connects Mongo+    │
+│     Redis, ensures indexes)                 │
+│  4. Start worker (Celery registers tasks    │
+│     audit.record + analytics.record_eval_   │
+│     event, connects to Redis broker)        │
+│  5. Start dashboard (Vite dev or nginx      │
+│     serving /dist)                          │
+└─────────────────────────────────────────────┘
 ```
 
-Vercel config (`dashboard/vercel.json`, optional — only for SPA fallback):
+### Scaling notes
 
-```json
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
-```
-
-That's it. Every commit to main auto-deploys to production; PRs get preview URLs.
-
-### Backend deployment options
-
-You need: FastAPI container, Celery worker, MongoDB, Redis, and either Ollama or Anthropic. Pick a platform that supports long-lived processes.
-
-| Platform | FastAPI | Celery | Mongo | Redis | Ollama | Cost |
-|---|---|---|---|---|---|---|
-| **Railway** | ✅ container | ✅ separate service | ✅ plugin | ✅ plugin | ⚠️ sidecar container, small model only | $5/mo + usage |
-| **Render** | ✅ web service | ✅ background worker | ✅ managed | ✅ managed | ❌ (use Anthropic) | ~$14/mo |
-| **Fly.io** | ✅ | ✅ | use Atlas | use Upstash | ✅ GPU tier | pay-as-you-go |
-| **AWS ECS/Fargate** | ✅ | ✅ | Atlas/DocDB | ElastiCache | ✅ GPU ECS task | moderate ops |
-| **DigitalOcean App Platform** | ✅ | ✅ | managed | managed | ❌ | ~$12/mo |
-
-**Recommended minimal setup (Railway):**
-
-1. Railway project → new service from repo, root `backend/`.
-2. Second service in the same project: same image, override command to `celery -A celery_app.celery worker --loglevel=info`.
-3. Add Mongo plugin → sets `MONGO_URI` in env.
-4. Add Redis plugin → sets `REDIS_URL` and `CELERY_BROKER_URL`.
-5. Set `NL_PROVIDER=anthropic`, `ANTHROPIC_API_KEY=...` (simplest path; Ollama on Railway needs a separate container with a pinned model).
-6. Set `CORS_ORIGINS=https://your-vercel-app.vercel.app`.
-7. Expose port 8000 → gives you `https://vf-ff-api.up.railway.app`.
-8. On Vercel, set `VITE_API_BASE_URL=https://vf-ff-api.up.railway.app` → redeploy.
-
-**Managed DB alternative (any platform):**
-
-- Mongo: [MongoDB Atlas](https://www.mongodb.com/atlas) free M0 tier (512 MB)
-- Redis: [Upstash](https://upstash.com/) free tier (256 MB, 10k commands/day)
-
-Swap the `MONGO_URI` / `REDIS_URL` / `CELERY_BROKER_URL` env vars to the managed-service URIs and stop running Mongo/Redis yourself.
-
-### Why not the full stack on Vercel
-
-Vercel's Python runtime is **serverless only** — every request spins up a new function invocation. That breaks several assumptions in this codebase:
-
-1. **Celery worker** — needs a long-lived process subscribed to Redis. Serverless invocations can't host one. You'd need a separate service anyway.
-2. **Motor connection pool** — cold starts re-establish Mongo connections; reasonable for low traffic, painful at scale.
-3. **FastAPI lifespan** — `ensure_all_indexes`, redis client init, etc. would run per cold start instead of once at boot.
-4. **Ollama** — the LLM daemon needs a persistent host with RAM/VRAM for the model; Vercel functions have a 50MB code budget and ephemeral storage.
-5. **In-process caches** — Redis covers this, but any in-memory cache (e.g. FastAPI's lifespan state) evaporates per invocation.
-
-The dashboard does not have any of these constraints — it's static files after `npm run build`. That's why the split makes sense.
-
-**If you're determined to try Vercel for the API:** you can wrap FastAPI with `@vercel/python` in a `api/index.py`, move Celery to another platform (e.g. Upstash QStash or Railway worker), and use Anthropic instead of Ollama. Expect cold-start latency on every burst.
+- **API**: horizontal — add `api2`, `api3` services and front them with a load balancer. Each is stateless.
+- **Worker**: horizontal — `docker-compose up -d --scale worker=4`.
+- **Mongo/Redis**: migrate to managed services (Atlas / Upstash / AWS) when single-node is a bottleneck. Just change `MONGO_URI` / `REDIS_URL` / `CELERY_BROKER_URL` in `.env` — no code changes.
 
 ---
 

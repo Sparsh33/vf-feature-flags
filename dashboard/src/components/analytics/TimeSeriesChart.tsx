@@ -50,7 +50,7 @@ export function TimeSeriesChart({
     );
   }
   const cohortNames = Array.from(
-    new Set(buckets.flatMap((bucket) => Object.keys(bucket.counts_by_cohort)))
+    new Set(buckets.flatMap((bucket) => Object.keys(bucket.counts_by_cohort))),
   );
   const chartData = buckets.map((bucket) => {
     const row: Record<string, string | number> = { ts: bucket.ts };

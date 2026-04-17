@@ -1,5 +1,6 @@
 """Feature-flag evaluation service — hot path."""
 
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from app.common.errors import EvalError, FlagNotFound
@@ -7,14 +8,6 @@ from app.common.logging_helpers import LoggingData, log_info, log_warning
 from app.services.eval.bucketing import Cohort, compute_bucket, pick_cohort
 from app.services.eval.cache import compute_cache_key, get_cached, set_cached
 from app.services.eval.eval_model import EvalResponse
-
-
-def _safe_log(fn, data: LoggingData) -> None:
-    try:
-        fn(data)
-    except Exception:  # pragma: no cover - shared logger has known key clash bug
-        pass
-
 
 REASON_CACHED = "cached"
 REASON_COMPUTED = "computed"
@@ -48,9 +41,7 @@ def _normalize_flag(flag: Any) -> Optional[Dict[str, Any]]:
 
 async def _load_flag(client_id: str, flag_key: str) -> Dict[str, Any]:
     try:
-        from app.services.flag.repositories.flag_repository import (  # type: ignore
-            FlagRepository,
-        )
+        from app.services.flag.repositories.flag_repository import FlagRepository  # type: ignore
     except ImportError:
         FlagRepository = None  # type: ignore
     if FlagRepository is None:
@@ -113,7 +104,6 @@ def _emit_eval_event(
     reason: str,
 ) -> None:
     try:
-        from datetime import datetime, timezone
         from app.services.analytics.tasks import record_eval_event  # type: ignore
 
         record_eval_event.delay(
@@ -128,13 +118,12 @@ def _emit_eval_event(
             }
         )
     except Exception as exc:
-        _safe_log(
-            log_warning,
+        log_warning(
             LoggingData(
                 message="eval.analytics_emit_failed",
                 context={"flag_key": flag_key, "client_id": client_id},
                 error=exc,
-            ),
+            )
         )
 
 
@@ -142,12 +131,11 @@ async def evaluate(client_id: str, flag_key: str, body: Dict[str, Any]) -> EvalR
     cache_key = compute_cache_key(client_id=client_id, flag_key=flag_key, body=body)
     cached = await get_cached(cache_key)
     if cached is not None:
-        _safe_log(
-            log_info,
+        log_info(
             LoggingData(
                 message="eval.cache_hit",
                 context={"flag_key": flag_key, "client_id": client_id},
-            ),
+            )
         )
         return EvalResponse(
             value=cached.get("value"),

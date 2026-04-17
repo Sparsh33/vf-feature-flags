@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { AUTH_STATE_FILE, installApiProxy, readApiKey, writeApiKey } from "./helpers/auth";
+import {
+  AUTH_STATE_FILE,
+  installApiProxy,
+  readApiKey,
+  writeApiKey,
+} from "./helpers/auth";
 
 test.describe.configure({ mode: "serial" });
 
@@ -15,10 +20,15 @@ test.describe("Settings", () => {
     page,
   }) => {
     const previous = readApiKey();
-    expect(previous, "Must have captured an API key in spec 01 first").not.toBeNull();
+    expect(
+      previous,
+      "Must have captured an API key in spec 01 first",
+    ).not.toBeNull();
 
     await page.goto("/settings");
-    await expect(page.getByRole("heading", { name: /settings/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /settings/i }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: /rotate api key/i }).click();
 

@@ -17,20 +17,19 @@ from app.services.eval.eval_service import (
 )
 
 
-def _safe_log_error(message: str, context: Dict[str, Any], error: Exception) -> None:
-    try:
-        log_error(LoggingData(message=message, context=context, error=error))
-    except Exception:  # pragma: no cover - shared logger has known key clash bug
-        pass
-
-
 async def handle_evaluate(
     client_id: str, flag_key: str, body: Dict[str, Any], response: Response
 ) -> EvalResponse:
     try:
         return await evaluate(client_id=client_id, flag_key=flag_key, body=body)
     except FlagNotFound as exc:
-        _safe_log_error("eval.flag_not_found", {"flag_key": flag_key, "client_id": client_id}, exc)
+        log_error(
+            LoggingData(
+                message="eval.flag_not_found",
+                context={"flag_key": flag_key, "client_id": client_id},
+                error=exc,
+            )
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=EvalResponse(
@@ -38,8 +37,12 @@ async def handle_evaluate(
             ).model_dump(),
         ) from exc
     except FlagEvalError as exc:
-        _safe_log_error(
-            "eval.evaluation_failed", {"flag_key": flag_key, "client_id": client_id}, exc
+        log_error(
+            LoggingData(
+                message="eval.evaluation_failed",
+                context={"flag_key": flag_key, "client_id": client_id},
+                error=exc,
+            )
         )
         response.headers["X-FF-Fallback"] = "true"
         raise HTTPException(
@@ -53,8 +56,12 @@ async def handle_evaluate(
             headers={"X-FF-Fallback": "true"},
         ) from exc
     except FlagLoadError as exc:
-        _safe_log_error(
-            "eval.flag_load_failed", {"flag_key": flag_key, "client_id": client_id}, exc
+        log_error(
+            LoggingData(
+                message="eval.flag_load_failed",
+                context={"flag_key": flag_key, "client_id": client_id},
+                error=exc,
+            )
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -63,8 +70,12 @@ async def handle_evaluate(
             ).model_dump(),
         ) from exc
     except Exception as exc:
-        _safe_log_error(
-            "eval.unexpected_error", {"flag_key": flag_key, "client_id": client_id}, exc
+        log_error(
+            LoggingData(
+                message="eval.unexpected_error",
+                context={"flag_key": flag_key, "client_id": client_id},
+                error=exc,
+            )
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

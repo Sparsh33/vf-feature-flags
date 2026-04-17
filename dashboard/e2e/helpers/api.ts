@@ -32,7 +32,7 @@ function buildUrl(urlPath: string, params?: RequestOptions["params"]): string {
 async function request<T>(
   method: string,
   urlPath: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -58,13 +58,14 @@ export const backendApi = {
   evaluate: (
     flagKey: string,
     payload: { user_id: string | number; attributes?: Record<string, unknown> },
-    apiKey: string
+    apiKey: string,
   ) => request(`POST`, `/v1/evaluate/${flagKey}`, { apiKey, body: payload }),
-  listFlags: (token: string) => request<{ flags: Array<{ id: string; flag_key: string }> }>(
-    `GET`,
-    `/api/flags/`,
-    { token }
-  ),
+  listFlags: (token: string) =>
+    request<{ flags: Array<{ id: string; flag_key: string }> }>(
+      `GET`,
+      `/api/flags/`,
+      { token },
+    ),
   getHealth: () => request<{ status: string }>(`GET`, `/health`),
 };
 
@@ -74,7 +75,7 @@ export const backendApi = {
 export async function seedEvaluations(
   flagKey: string,
   apiKey: string,
-  count = 20
+  count = 20,
 ): Promise<void> {
   for (let index = 0; index < count; index += 1) {
     try {

@@ -156,7 +156,9 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={handleCopy}>
               Copy
             </Button>
-            <Button onClick={() => setNewKey(null)}>I&apos;ve saved this</Button>
+            <Button onClick={() => setNewKey(null)}>
+              I&apos;ve saved this
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

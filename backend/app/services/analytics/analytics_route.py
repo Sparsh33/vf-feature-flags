@@ -11,10 +11,7 @@ from app.services.analytics.analytics_model import (
     FlagAnalyticsResponse,
     FlagAnalyticsTimeSeriesResponse,
 )
-from app.services.analytics.analytics_service import (
-    get_flag_analytics,
-    get_flag_time_series,
-)
+from app.services.analytics.analytics_service import get_flag_analytics, get_flag_time_series
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +29,7 @@ try:
         return current_user.client_id
 
 except ImportError:
+
     async def _resolve_user(  # type: ignore[no-redef]
         x_client_id: Optional[str] = Header(default=None, alias="X-Client-Id"),
     ) -> str:

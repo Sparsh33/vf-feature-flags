@@ -4,13 +4,8 @@ from typing import Optional, Tuple
 
 from pymongo.errors import DuplicateKeyError
 
-from app.common.errors import (
-    ConflictError,
-    InvalidApiKey,
-    InvalidCredentials,
-    UserNotFound,
-)
-from app.common.logging_helpers import LoggingData
+from app.common.errors import ConflictError, InvalidApiKey, InvalidCredentials, UserNotFound
+from app.common.logging_helpers import LoggingData, log_error, log_info
 from app.services.auth.auth_model import (
     Client,
     ClientPublic,
@@ -22,7 +17,6 @@ from app.services.auth.auth_model import (
     User,
     UserPublic,
 )
-from app.services.auth.logging_shim import log_error, log_info
 from app.services.auth.repositories.client_repository import ClientRepository
 from app.services.auth.repositories.user_repository import UserRepository
 from app.services.auth.security import (

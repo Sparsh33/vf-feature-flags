@@ -46,7 +46,7 @@ export default function FlagsListPage() {
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [page, setPage] = React.useState(0);
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(
-    null
+    null,
   );
 
   const params = {

@@ -62,7 +62,10 @@ export default function FlagAnalyticsPage(): JSX.Element {
   const timeSeriesQuery = useQuery({
     queryKey: ["flag-time-series", flagId, rangeParams, interval],
     queryFn: () =>
-      analyticsApi.getFlagTimeSeries(flagId ?? "", { ...rangeParams, interval }),
+      analyticsApi.getFlagTimeSeries(flagId ?? "", {
+        ...rangeParams,
+        interval,
+      }),
     enabled: Boolean(flagId),
   });
 
@@ -77,17 +80,19 @@ export default function FlagAnalyticsPage(): JSX.Element {
 
   if (!flagId) {
     return (
-      <div className="p-6 text-sm text-destructive">Missing flag id in URL.</div>
+      <div className="p-6 text-sm text-destructive">
+        Missing flag id in URL.
+      </div>
     );
   }
 
   const data = analyticsQuery.data;
-  const defaultCount = data?.per_cohort.find(
-    (stat) => stat.cohort_name === "__fallback__"
-  )?.count ?? 0;
-  const notFoundCount = data?.per_cohort.find(
-    (stat) => stat.cohort_name === "__not_found__"
-  )?.count ?? 0;
+  const defaultCount =
+    data?.per_cohort.find((stat) => stat.cohort_name === "__fallback__")
+      ?.count ?? 0;
+  const notFoundCount =
+    data?.per_cohort.find((stat) => stat.cohort_name === "__not_found__")
+      ?.count ?? 0;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -123,7 +128,10 @@ export default function FlagAnalyticsPage(): JSX.Element {
                 type="datetime-local"
                 value={toInputLocal(range.from)}
                 onChange={(e) =>
-                  setRange((prev) => ({ ...prev, from: fromInputLocal(e.target.value) }))
+                  setRange((prev) => ({
+                    ...prev,
+                    from: fromInputLocal(e.target.value),
+                  }))
                 }
                 className="rounded border bg-background px-2 py-1"
               />
@@ -132,7 +140,10 @@ export default function FlagAnalyticsPage(): JSX.Element {
                 type="datetime-local"
                 value={toInputLocal(range.to)}
                 onChange={(e) =>
-                  setRange((prev) => ({ ...prev, to: fromInputLocal(e.target.value) }))
+                  setRange((prev) => ({
+                    ...prev,
+                    to: fromInputLocal(e.target.value),
+                  }))
                 }
                 className="rounded border bg-background px-2 py-1"
               />
@@ -151,7 +162,10 @@ export default function FlagAnalyticsPage(): JSX.Element {
       </div>
       <StatsCards
         items={[
-          { title: "Total requests", value: (data?.total_requests ?? 0).toLocaleString() },
+          {
+            title: "Total requests",
+            value: (data?.total_requests ?? 0).toLocaleString(),
+          },
           { title: "Fallback (default)", value: defaultCount.toLocaleString() },
           { title: "Not found", value: notFoundCount.toLocaleString() },
         ]}
@@ -160,17 +174,19 @@ export default function FlagAnalyticsPage(): JSX.Element {
         <div className="rounded-lg border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Cohort breakdown</h2>
           {analyticsQuery.isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              Loading…
+            </div>
           ) : (
             <CohortBarChart data={data?.per_cohort ?? []} />
           )}
         </div>
         <div className="rounded-lg border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">
-            Over time ({interval})
-          </h2>
+          <h2 className="mb-3 text-sm font-semibold">Over time ({interval})</h2>
           {timeSeriesQuery.isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              Loading…
+            </div>
           ) : (
             <TimeSeriesChart buckets={timeSeriesQuery.data?.buckets ?? []} />
           )}

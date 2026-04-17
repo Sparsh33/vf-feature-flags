@@ -25,6 +25,34 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: "http://ollama:11434"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        echo "[ollama-init] pulling $$OLLAMA_MODEL (idempotent; no-op if already present)";
+        ollama pull "$$OLLAMA_MODEL" && echo "[ollama-init] done"
+    restart: "no"
+
   api:
     build:
       context: ./backend
@@ -32,13 +60,30 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    environment:
+      ENV: "${ENV:-local}"
+      MONGO_URI: "${MONGO_URI:-mongodb://mongo:27017}"
+      MONGO_DB: "${MONGO_DB:-vf_feature_flags}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://redis:6379/1}"
+      JWT_SECRET: "${JWT_SECRET:-dev-insecure-change-me}"
+      JWT_TTL_MINUTES: "${JWT_TTL_MINUTES:-1440}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:5173}"
+      NL_PROVIDER: "${NL_PROVIDER:-ollama}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://ollama:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
+      NL_INPUT_TOKEN_BUDGET: "${NL_INPUT_TOKEN_BUDGET:-8192}"
+      NL_COMPACTION_TRIGGER: "${NL_COMPACTION_TRIGGER:-0.70}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     depends_on:
       mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
     volumes:
       - ./backend:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -48,8 +93,17 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      ENV: "${ENV:-local}"
+      MONGO_URI: "${MONGO_URI:-mongodb://mongo:27017}"
+      MONGO_DB: "${MONGO_DB:-vf_feature_flags}"
+      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
+      CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://redis:6379/1}"
+      JWT_SECRET: "${JWT_SECRET:-dev-insecure-change-me}"
+      NL_PROVIDER: "${NL_PROVIDER:-ollama}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://ollama:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     depends_on:
       mongo:
         condition: service_healthy
@@ -74,3 +128,4 @@ services:
 volumes:
   mongo_data:
   redis_data:
+  ollama_data:

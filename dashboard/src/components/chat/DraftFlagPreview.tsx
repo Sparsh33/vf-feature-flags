@@ -49,7 +49,9 @@ export function DraftFlagPreview({
           <span className="text-sm font-medium">{draft.name}</span>
         </div>
         {draft.description ? (
-          <p className="mt-2 text-xs text-muted-foreground">{draft.description}</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {draft.description}
+          </p>
         ) : null}
         <div className="mt-2 flex items-center gap-2 text-xs">
           <span className="text-muted-foreground">default:</span>
@@ -61,11 +63,13 @@ export function DraftFlagPreview({
       {draft.cohorts && draft.cohorts.length > 0 ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-medium">Cohorts ({draft.cohorts.length})</span>
+            <span className="font-medium">
+              Cohorts ({draft.cohorts.length})
+            </span>
             <span
               className={cn(
                 "font-mono",
-                pctValid ? "text-emerald-600" : "text-rose-600"
+                pctValid ? "text-emerald-600" : "text-rose-600",
               )}
             >
               total: {pct}%
@@ -85,7 +89,9 @@ export function DraftFlagPreview({
               </div>
               <div className="mt-1 flex items-center gap-2 text-[11px]">
                 <span className="text-muted-foreground">value:</span>
-                <span className="font-mono">{renderCohortValue(cohort.value)}</span>
+                <span className="font-mono">
+                  {renderCohortValue(cohort.value)}
+                </span>
               </div>
             </div>
           ))}
@@ -99,16 +105,16 @@ export function DraftFlagPreview({
           "w-full rounded-md px-4 py-2 text-sm font-semibold transition",
           readyToCommit && !committedFlagId
             ? "bg-emerald-600 text-white hover:bg-emerald-700"
-            : "cursor-not-allowed bg-zinc-200 text-zinc-500 dark:bg-zinc-800"
+            : "cursor-not-allowed bg-zinc-200 text-zinc-500 dark:bg-zinc-800",
         )}
       >
         {committedFlagId
           ? "Flag created"
           : committing
-          ? "Creating…"
-          : readyToCommit
-          ? "Commit flag"
-          : "Not ready to commit"}
+            ? "Creating…"
+            : readyToCommit
+              ? "Commit flag"
+              : "Not ready to commit"}
       </button>
     </div>
   );

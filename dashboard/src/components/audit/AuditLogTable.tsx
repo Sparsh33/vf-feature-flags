@@ -35,7 +35,10 @@ function formatTs(iso: string): string {
   }
 }
 
-export function AuditLogTable({ logs, onRowClick }: AuditLogTableProps): JSX.Element {
+export function AuditLogTable({
+  logs,
+  onRowClick,
+}: AuditLogTableProps): JSX.Element {
   if (logs.length === 0) {
     return (
       <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
@@ -73,14 +76,16 @@ export function AuditLogTable({ logs, onRowClick }: AuditLogTableProps): JSX.Ele
                 <span
                   className={cn(
                     "inline-block rounded px-2 py-0.5 font-mono text-[11px] font-medium",
-                    actionBadgeClass(log.action)
+                    actionBadgeClass(log.action),
                   )}
                 >
                   {log.action}
                 </span>
               </td>
               <td className="px-3 py-2 font-mono text-xs">
-                <span className="text-muted-foreground">{log.resource_type}:</span>{" "}
+                <span className="text-muted-foreground">
+                  {log.resource_type}:
+                </span>{" "}
                 {log.resource_id}
               </td>
               <td className="px-3 py-2 text-right">

@@ -45,14 +45,7 @@ def _resolve_range(
 
 async def _resolve_flag_key(client_id: str, flag_id: str) -> str:
     repository = AnalyticsRepository()
-    collection = await repository._get_collection()
-    document = await collection.find_one(
-        {"client_id": client_id, "flag_id": flag_id},
-        sort=[("ts", -1)],
-    )
-    if document is None:
-        return ""
-    return document.get("flag_key", "")
+    return await repository.get_latest_flag_key(client_id=client_id, flag_id=flag_id)
 
 
 async def get_flag_analytics(

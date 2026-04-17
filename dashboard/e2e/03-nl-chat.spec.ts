@@ -14,12 +14,14 @@ test.describe("NL chat", () => {
     test.slow();
 
     await page.goto("/chat");
-    await expect(page.getByRole("heading", { name: /flag builder/i })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /flag builder/i }),
+    ).toBeVisible();
 
     const textarea = page.locator("textarea");
     await textarea.fill(
       "Create a flag called welcome_banner with a 50/50 A-B test returning " +
-        '{"color":"green"} or {"color":"blue"}, default {"color":"gray"}.'
+        '{"color":"green"} or {"color":"blue"}, default {"color":"gray"}.',
     );
 
     await page.getByRole("button", { name: /^send$/i }).click();
@@ -38,7 +40,9 @@ test.describe("NL chat", () => {
     // Accept any partial extraction: look for the flag key we asked for,
     // OR for the label "flag_key" appearing in the panel. Don't fail if
     // the LLM produced neither — the core smoke is the chat round-trip.
-    const extractedPanel = page.locator("text=/welcome_banner|flag_key|cohort/i");
+    const extractedPanel = page.locator(
+      "text=/welcome_banner|flag_key|cohort/i",
+    );
     // Non-blocking: log if nothing extracted, don't fail.
     const extractedCount = await extractedPanel.count();
     // eslint-disable-next-line no-console
@@ -49,9 +53,9 @@ test.describe("NL chat", () => {
     if ((await commitButton.count()) > 0 && (await commitButton.isEnabled())) {
       await commitButton.click();
       // Success toast OR committed state becomes locked.
-      await expect(
-        page.getByText(/flag created|view flag/i)
-      ).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(/flag created|view flag/i)).toBeVisible({
+        timeout: 30_000,
+      });
 
       // Verify it exists in the flag list.
       await page.goto("/flags");

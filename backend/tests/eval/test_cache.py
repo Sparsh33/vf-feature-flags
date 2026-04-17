@@ -2,12 +2,7 @@
 
 import pytest
 
-from app.services.eval.cache import (
-    CACHE_KEY_PREFIX,
-    compute_cache_key,
-    get_cached,
-    set_cached,
-)
+from app.services.eval.cache import CACHE_KEY_PREFIX, compute_cache_key, get_cached, set_cached
 
 
 def test_compute_cache_key_is_deterministic():

@@ -28,12 +28,15 @@ function formatTs(iso: string): string {
 // Diff-highlight: mark keys that changed between before/after with a subtle background.
 function diffKeys(
   before: Record<string, unknown> | null | undefined,
-  after: Record<string, unknown> | null | undefined
+  after: Record<string, unknown> | null | undefined,
 ): Set<string> {
   const keys = new Set<string>();
   const beforeObj = before ?? {};
   const afterObj = after ?? {};
-  const allKeys = new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)]);
+  const allKeys = new Set([
+    ...Object.keys(beforeObj),
+    ...Object.keys(afterObj),
+  ]);
   for (const key of allKeys) {
     const beforeValue = JSON.stringify(beforeObj[key]);
     const afterValue = JSON.stringify(afterObj[key]);
@@ -44,7 +47,7 @@ function diffKeys(
 
 function renderWithDiff(
   value: Record<string, unknown> | null | undefined,
-  changedKeys: Set<string>
+  changedKeys: Set<string>,
 ): JSX.Element {
   if (!value) {
     return <span className="text-muted-foreground">(none)</span>;
@@ -131,13 +134,13 @@ export function AuditDetailDrawer({
               Before
             </h3>
             <div className="rounded-md border bg-muted/30 p-3">
-              {log.before
-                ? renderWithDiff(log.before, changedKeys)
-                : (
-                  <pre className="font-mono text-xs text-muted-foreground">
-                    {prettyJson(log.before)}
-                  </pre>
-                )}
+              {log.before ? (
+                renderWithDiff(log.before, changedKeys)
+              ) : (
+                <pre className="font-mono text-xs text-muted-foreground">
+                  {prettyJson(log.before)}
+                </pre>
+              )}
             </div>
           </div>
           <div>
@@ -145,13 +148,13 @@ export function AuditDetailDrawer({
               After
             </h3>
             <div className="rounded-md border bg-muted/30 p-3">
-              {log.after
-                ? renderWithDiff(log.after, changedKeys)
-                : (
-                  <pre className="font-mono text-xs text-muted-foreground">
-                    {prettyJson(log.after)}
-                  </pre>
-                )}
+              {log.after ? (
+                renderWithDiff(log.after, changedKeys)
+              ) : (
+                <pre className="font-mono text-xs text-muted-foreground">
+                  {prettyJson(log.after)}
+                </pre>
+              )}
             </div>
           </div>
         </div>

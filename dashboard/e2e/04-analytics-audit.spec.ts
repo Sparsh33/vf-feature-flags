@@ -17,16 +17,20 @@ test.describe("Analytics & audit", () => {
     const apiKey = readApiKey();
     if (!flag || !apiKey) {
       throw new Error(
-        "Missing flag info or API key in e2e/.state — run spec 01 + 02 first."
+        "Missing flag info or API key in e2e/.state — run spec 01 + 02 first.",
       );
     }
     // Generate 20 eval calls so analytics has data.
     await seedEvaluations(flag.flag_key, apiKey, 20);
   });
 
-  test("analytics overview renders cards and per-flag breakdown", async ({ page }) => {
+  test("analytics overview renders cards and per-flag breakdown", async ({
+    page,
+  }) => {
     await page.goto("/analytics");
-    await expect(page.getByRole("heading", { name: /analytics overview/i })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: /analytics overview/i }),
+    ).toBeVisible({
       timeout: 15_000,
     });
 
@@ -34,21 +38,23 @@ test.describe("Analytics & audit", () => {
     await expect(page.getByText(/total flags/i)).toBeVisible();
     await expect(page.getByText(/total evals/i)).toBeVisible();
 
-    // Per-flag breakdown should include our seeded flag key.
-    const flag = readFlagInfo();
-    if (flag) {
-      await expect(page.getByText(flag.flag_key)).toBeVisible();
-    }
+    // Per-flag breakdown table renders each flag's name — the seeded flag's
+    // name "Playwright rollout" is set in spec 02.
+    await expect(page.getByText("Playwright rollout").first()).toBeVisible();
   });
 
-  test("flag analytics drilldown shows charts and non-zero totals", async ({ page }) => {
+  test("flag analytics drilldown shows charts and non-zero totals", async ({
+    page,
+  }) => {
     const flag = readFlagInfo();
     test.skip(!flag, "No seeded flag — run spec 02 first.");
 
     await page.goto(`/flags/${flag!.id}/analytics`);
 
     // Total requests card should render with a numeric value > 0 eventually.
-    await expect(page.getByText(/total requests/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/total requests/i)).toBeVisible({
+      timeout: 15_000,
+    });
 
     // Charts render as SVGs inside recharts wrappers.
     await expect(page.locator("svg").first()).toBeVisible({ timeout: 15_000 });
@@ -67,22 +73,26 @@ test.describe("Analytics & audit", () => {
 
     // Switch to 1h.
     await page.getByRole("button", { name: "1h", exact: true }).click();
-    await expect(page.getByRole("button", { name: "1h", exact: true })).toHaveClass(
-      /bg-slate-900|bg-slate-50/
-    );
+    await expect(
+      page.getByRole("button", { name: "1h", exact: true }),
+    ).toHaveClass(/bg-slate-900|bg-slate-50/);
 
     // Switch back to 24h.
     await page.getByRole("button", { name: "24h", exact: true }).click();
-    await expect(page.getByRole("button", { name: "24h", exact: true })).toHaveClass(
-      /bg-slate-900|bg-slate-50/
-    );
+    await expect(
+      page.getByRole("button", { name: "24h", exact: true }),
+    ).toHaveClass(/bg-slate-900|bg-slate-50/);
   });
 
-  test("audit log shows flag.create and opens detail drawer", async ({ page }) => {
+  test("audit log shows flag.create and opens detail drawer", async ({
+    page,
+  }) => {
     await page.goto("/audit");
-    await expect(page.getByRole("heading", { name: /audit log/i })).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(page.getByRole("heading", { name: /audit log/i })).toBeVisible(
+      {
+        timeout: 15_000,
+      },
+    );
 
     // Wait for at least one row.
     const rows = page.locator("table tbody tr");

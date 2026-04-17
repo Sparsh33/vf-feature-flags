@@ -13,10 +13,10 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 // Agent H pages — lazy-loaded so missing files don't break the build.
 const NLChatPage = React.lazy(() => import("@/pages/chat/NLChatPage"));
 const AnalyticsOverviewPage = React.lazy(
-  () => import("@/pages/analytics/AnalyticsOverviewPage")
+  () => import("@/pages/analytics/AnalyticsOverviewPage"),
 );
 const FlagAnalyticsPage = React.lazy(
-  () => import("@/pages/analytics/FlagAnalyticsPage")
+  () => import("@/pages/analytics/FlagAnalyticsPage"),
 );
 const AuditLogPage = React.lazy(() => import("@/pages/audit/AuditLogPage"));
 

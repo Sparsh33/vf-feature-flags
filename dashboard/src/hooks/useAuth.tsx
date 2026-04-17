@@ -12,16 +12,20 @@ interface AuthContextValue {
   signup: (
     email: string,
     password: string,
-    clientName: string
+    clientName: string,
   ) => Promise<SignupResponse>;
   logout: () => void;
 }
 
-const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextValue | undefined>(
+  undefined,
+);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
-  const [token, setToken] = React.useState<string | null>(() => getStoredToken());
+  const [token, setToken] = React.useState<string | null>(() =>
+    getStoredToken(),
+  );
 
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["auth", "me", token],
@@ -41,10 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await authApi.login({ email, password });
       setStoredToken(response.access_token);
       setToken(response.access_token);
-      queryClient.setQueryData(["auth", "me", response.access_token], response.user);
+      queryClient.setQueryData(
+        ["auth", "me", response.access_token],
+        response.user,
+      );
       return response.user;
     },
-    [queryClient]
+    [queryClient],
   );
 
   const signup = React.useCallback(
@@ -58,11 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(response.access_token);
       queryClient.setQueryData(
         ["auth", "me", response.access_token],
-        response.user
+        response.user,
       );
       return response;
     },
-    [queryClient]
+    [queryClient],
   );
 
   const logout = React.useCallback(() => {

@@ -2,8 +2,33 @@
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+from fastapi import FastAPI, Header, HTTPException
+from httpx import ASGITransport, AsyncClient
+
+from app.middleware.request_context import RequestContextManager
+from app.services.analytics import analytics_route as analytics_route_module
 from app.services.analytics.analytics_model import AnalyticsEvent
+from app.services.analytics.analytics_route import router as analytics_router
 from app.services.analytics.repositories.analytics_repository import AnalyticsRepository
+
+
+async def _header_client_id(x_client_id: str = Header(default=None, alias="X-Client-Id")) -> str:
+    if not x_client_id:
+        raise HTTPException(status_code=401, detail="Unauthorized: X-Client-Id required")
+    RequestContextManager.set_client_id(x_client_id)
+    return x_client_id
+
+
+@pytest.fixture
+async def analytics_client():
+    app = FastAPI()
+    app.include_router(analytics_router, prefix="/api/analytics")
+    # Override the JWT-based auth dependency with a simple header-based one for testing.
+    app.dependency_overrides[analytics_route_module._resolve_user] = _header_client_id
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as async_client:
+        yield async_client
 
 
 async def _seed_event(client_id: str, cohort_name: str, ts: datetime) -> None:
@@ -21,11 +46,11 @@ async def _seed_event(client_id: str, cohort_name: str, ts: datetime) -> None:
     )
 
 
-async def test_get_flag_analytics_returns_expected_shape(client):
+async def test_get_flag_analytics_returns_expected_shape(analytics_client):
     now = datetime.now(timezone.utc)
     await _seed_event("client-1", "control", now - timedelta(minutes=10))
     await _seed_event("client-1", "variant", now - timedelta(minutes=5))
-    response = await client.get(
+    response = await analytics_client.get(
         "/api/analytics/flags/flag-1",
         headers={"X-Client-Id": "client-1"},
     )
@@ -38,11 +63,11 @@ async def test_get_flag_analytics_returns_expected_shape(client):
     assert "from" in payload["time_range"] and "to" in payload["time_range"]
 
 
-async def test_get_flag_analytics_is_client_scoped(client):
+async def test_get_flag_analytics_is_client_scoped(analytics_client):
     now = datetime.now(timezone.utc)
     await _seed_event("client-1", "control", now - timedelta(minutes=1))
     await _seed_event("client-2", "control", now - timedelta(minutes=1))
-    response = await client.get(
+    response = await analytics_client.get(
         "/api/analytics/flags/flag-1",
         headers={"X-Client-Id": "client-2"},
     )
@@ -50,16 +75,16 @@ async def test_get_flag_analytics_is_client_scoped(client):
     assert response.json()["total_requests"] == 1
 
 
-async def test_get_flag_analytics_requires_client_header(client):
-    response = await client.get("/api/analytics/flags/flag-1")
+async def test_get_flag_analytics_requires_client_header(analytics_client):
+    response = await analytics_client.get("/api/analytics/flags/flag-1")
     assert response.status_code == 401
 
 
-async def test_time_series_endpoint_shape(client):
+async def test_time_series_endpoint_shape(analytics_client):
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     await _seed_event("client-1", "control", now - timedelta(hours=1))
     await _seed_event("client-1", "variant", now - timedelta(hours=2))
-    response = await client.get(
+    response = await analytics_client.get(
         "/api/analytics/flags/flag-1/time-series",
         headers={"X-Client-Id": "client-1"},
         params={"interval": "hour"},
@@ -71,8 +96,8 @@ async def test_time_series_endpoint_shape(client):
     assert len(payload["buckets"]) == 2
 
 
-async def test_time_series_rejects_invalid_interval(client):
-    response = await client.get(
+async def test_time_series_rejects_invalid_interval(analytics_client):
+    response = await analytics_client.get(
         "/api/analytics/flags/flag-1/time-series",
         headers={"X-Client-Id": "client-1"},
         params={"interval": "week"},
