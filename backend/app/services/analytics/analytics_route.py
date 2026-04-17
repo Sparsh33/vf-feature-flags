@@ -20,16 +20,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+try:
+    from app.services.auth.auth_model import UserPublic
+    from app.services.auth.dependencies import get_current_user as _jwt_user
 
-# TEMP: until `app.services.auth.dependencies.get_current_user` exists (Phase 2A),
-# resolve client_id from X-Client-Id header and populate request context.
-async def get_current_user(
-    x_client_id: Optional[str] = Header(default=None, alias="X-Client-Id"),
-) -> str:
-    if not x_client_id:
-        raise HTTPException(status_code=401, detail="missing X-Client-Id header")
-    RequestContextManager.set_client_id(x_client_id)
-    return x_client_id
+    async def _resolve_user(
+        current_user: UserPublic = Depends(_jwt_user),
+    ) -> str:
+        RequestContextManager.set_client_id(current_user.client_id)
+        RequestContextManager.set_user_id(current_user.id)
+        return current_user.client_id
+
+except ImportError:
+    async def _resolve_user(  # type: ignore[no-redef]
+        x_client_id: Optional[str] = Header(default=None, alias="X-Client-Id"),
+    ) -> str:
+        if not x_client_id:
+            raise HTTPException(status_code=401, detail="missing X-Client-Id header")
+        RequestContextManager.set_client_id(x_client_id)
+        return x_client_id
 
 
 @router.get("/flags/{flag_id}", response_model=FlagAnalyticsResponse)
@@ -37,7 +46,7 @@ async def read_flag_analytics(
     flag_id: str,
     from_ts: Optional[datetime] = Query(default=None),
     to_ts: Optional[datetime] = Query(default=None),
-    _: str = Depends(get_current_user),
+    _: str = Depends(_resolve_user),
 ) -> FlagAnalyticsResponse:
     try:
         return await get_flag_analytics(flag_id=flag_id, from_ts=from_ts, to_ts=to_ts)
@@ -55,7 +64,7 @@ async def read_flag_time_series(
     from_ts: Optional[datetime] = Query(default=None),
     to_ts: Optional[datetime] = Query(default=None),
     interval: str = Query(default="hour"),
-    _: str = Depends(get_current_user),
+    _: str = Depends(_resolve_user),
 ) -> FlagAnalyticsTimeSeriesResponse:
     try:
         return await get_flag_time_series(

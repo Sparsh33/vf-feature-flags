@@ -1,11 +1,12 @@
-"""Shared fixtures for NL tests: mock anthropic client and request context."""
+"""Shared fixtures for NL tests: mock LLM provider and request context."""
 
 from typing import Any, Callable, Dict, List, Tuple
 
 import pytest
 
 from app.middleware.request_context import RequestContextManager
-from app.services.nl import claude_client, nl_service
+from app.services.nl import nl_service
+from app.services.nl.providers import dispatcher
 
 
 @pytest.fixture(autouse=True)
@@ -20,7 +21,7 @@ def _set_context():
 
 @pytest.fixture
 def mock_chat_turn(monkeypatch):
-    """Install a scripted replacement for claude_client.chat_turn.
+    """Install a scripted replacement for the provider-dispatch chat_turn.
 
     Usage:
         mock_chat_turn([
@@ -46,8 +47,8 @@ def mock_chat_turn(monkeypatch):
             except StopIteration:
                 return ("", {}, False, 0)
 
-        monkeypatch.setattr(claude_client, "chat_turn", _fake_chat_turn)
-        monkeypatch.setattr(nl_service.claude_client, "chat_turn", _fake_chat_turn)
+        monkeypatch.setattr(dispatcher, "chat_turn", _fake_chat_turn)
+        monkeypatch.setattr(nl_service.dispatcher, "chat_turn", _fake_chat_turn)
         return calls
 
     return _install
@@ -61,7 +62,7 @@ def mock_summarize(monkeypatch):
         async def _fake_summarize(messages, extracted):
             return summary_fn(messages, extracted)
 
-        monkeypatch.setattr(claude_client, "summarize_for_compaction", _fake_summarize)
+        monkeypatch.setattr(dispatcher, "summarize_for_compaction", _fake_summarize)
         from app.services.nl import compaction as compaction_module
 
         monkeypatch.setattr(compaction_module, "summarize_for_compaction", _fake_summarize)

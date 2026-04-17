@@ -113,15 +113,19 @@ def _emit_eval_event(
     reason: str,
 ) -> None:
     try:
+        from datetime import datetime, timezone
         from app.services.analytics.tasks import record_eval_event  # type: ignore
 
         record_eval_event.delay(
-            flag_id=flag_id,
-            flag_key=flag_key,
-            client_id=client_id,
-            cohort_id=cohort_id,
-            cohort_name=cohort_name,
-            reason=reason,
+            {
+                "flag_id": flag_id,
+                "flag_key": flag_key,
+                "client_id": client_id,
+                "cohort_id": cohort_id,
+                "cohort_name": cohort_name,
+                "reason": reason,
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
         )
     except Exception as exc:
         _safe_log(

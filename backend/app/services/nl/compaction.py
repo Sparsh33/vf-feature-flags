@@ -1,14 +1,32 @@
 """Compaction logic: summarize long conversations while preserving extracted params."""
 
-from app.services.nl.claude_client import summarize_for_compaction
+from app.config.settings import settings
 from app.services.nl.nl_model import NLMessage, NLSession
+from app.services.nl.providers.dispatcher import summarize_for_compaction
 
-MODEL_INPUT_BUDGET = 200_000
-COMPACTION_TRIGGER = 0.70
+
+def _model_input_budget() -> int:
+    return settings.nl_input_token_budget
+
+
+def _compaction_trigger() -> float:
+    return settings.nl_compaction_trigger
+
+
+# Backwards-compatible module-level aliases. Tests and legacy code that imported
+# these constants see the live settings values. Kept as dynamic lookups via
+# ``__getattr__`` below so changing settings at runtime (e.g. in a fixture) is
+# reflected immediately — static module attributes would cache the import-time value.
+def __getattr__(name: str):
+    if name == "MODEL_INPUT_BUDGET":
+        return _model_input_budget()
+    if name == "COMPACTION_TRIGGER":
+        return _compaction_trigger()
+    raise AttributeError(f"module 'compaction' has no attribute {name!r}")
 
 
 def should_compact(input_tokens_used: int) -> bool:
-    return input_tokens_used >= int(MODEL_INPUT_BUDGET * COMPACTION_TRIGGER)
+    return input_tokens_used >= int(_model_input_budget() * _compaction_trigger())
 
 
 async def compact_session(session: NLSession) -> NLSession:

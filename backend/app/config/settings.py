@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-me-in-prod")
     jwt_ttl_minutes: int = Field(default=1440)
     anthropic_api_key: str = Field(default="")
+    nl_provider: str = Field(default="ollama")
+    ollama_base_url: str = Field(default="http://host.docker.internal:11434")
+    ollama_model: str = Field(default="llama3.1:8b")
+    nl_input_token_budget: int = Field(default=8192)
+    nl_compaction_trigger: float = Field(default=0.70)
     cors_origins: str = Field(default="http://localhost:5173")
 
     @property

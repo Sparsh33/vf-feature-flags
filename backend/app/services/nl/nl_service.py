@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.common.errors import NLSessionNotFound
 from app.common.logging_helpers import LoggingData, log_error, log_info
 from app.middleware.request_context import RequestContextManager
-from app.services.nl import claude_client, compaction
+from app.services.nl import compaction
 from app.services.nl.nl_model import (
     ExtractedParams,
     NLChatRequest,
@@ -18,6 +18,7 @@ from app.services.nl.nl_model import (
     NLMessage,
     NLSession,
 )
+from app.services.nl.providers import dispatcher
 from app.services.nl.repositories.nl_repository import NLRepository
 
 TRIPLE_ASK_WINDOW = 3
@@ -47,7 +48,7 @@ async def chat(request: NLChatRequest) -> NLChatResponse:
     force_action = _is_triple_ask(session.messages, request.message)
     system_prompt = _build_system_prompt(session, force_action=force_action)
     history = _build_history_dicts(session.messages)
-    assistant_text, tool_draft, confirm_called, tokens = await claude_client.chat_turn(
+    assistant_text, tool_draft, confirm_called, tokens = await dispatcher.chat_turn(
         system_prompt=system_prompt,
         history=history,
         user_message=request.message,

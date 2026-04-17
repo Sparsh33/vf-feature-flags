@@ -26,6 +26,12 @@ dist-ssr/
 *.local
 .vite/
 
+# Playwright
+dashboard/e2e/.state/
+!dashboard/e2e/.state/.gitkeep
+dashboard/playwright-report/
+dashboard/test-results/
+
 # IDE
 .vscode/
 .idea/

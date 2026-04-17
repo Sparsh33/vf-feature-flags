@@ -40,6 +40,7 @@ def record_eval_event(self, payload: Dict[str, Any]) -> None:
 
 
 async def _record_eval_event_async(payload: Dict[str, Any]) -> None:
+    await mongodb.close()
     await mongodb.connect()
     ts_value = payload.get("ts")
     if isinstance(ts_value, str):

@@ -3,7 +3,8 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.services.nl import claude_client
+from app.services.nl import nl_service
+from app.services.nl.providers import dispatcher
 
 
 @pytest.fixture
@@ -11,10 +12,8 @@ async def nl_client(monkeypatch):
     async def _fake_chat_turn(system_prompt, history, user_message):
         return ("hello there, what key?", {"flag_key": "my_flag"}, False, 10)
 
-    monkeypatch.setattr(claude_client, "chat_turn", _fake_chat_turn)
-    from app.services.nl import nl_service
-
-    monkeypatch.setattr(nl_service.claude_client, "chat_turn", _fake_chat_turn)
+    monkeypatch.setattr(dispatcher, "chat_turn", _fake_chat_turn)
+    monkeypatch.setattr(nl_service.dispatcher, "chat_turn", _fake_chat_turn)
     from main import app
 
     transport = ASGITransport(app=app)

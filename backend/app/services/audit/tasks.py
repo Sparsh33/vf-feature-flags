@@ -14,10 +14,14 @@ from celery_app import celery
 
 
 async def _run_insert(payload: Dict[str, Any]) -> None:
+    await mongodb.close()
     await mongodb.connect()
     log = AuditLog(**payload)
     repository = AuditRepository()
-    await repository.insert(log)
+    try:
+        await repository.insert(log)
+    finally:
+        await mongodb.close()
 
 
 def _safe_log_warning(message: str, context: Dict[str, Any]) -> None:
