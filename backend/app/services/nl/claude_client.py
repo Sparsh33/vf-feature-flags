@@ -17,10 +17,7 @@ from app.services.nl.providers.anthropic_provider import (  # noqa: F401
     _get_client,
 )
 from app.services.nl.providers.base import merge_draft as _merge_draft  # noqa: F401
-from app.services.nl.providers.dispatcher import (  # noqa: F401
-    chat_turn,
-    summarize_for_compaction,
-)
+from app.services.nl.providers.dispatcher import chat_turn, summarize_for_compaction  # noqa: F401
 
 warnings.warn(
     "app.services.nl.claude_client is deprecated; "

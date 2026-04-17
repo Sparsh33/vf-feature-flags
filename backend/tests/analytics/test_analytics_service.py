@@ -6,10 +6,7 @@ import pytest
 
 from app.middleware.request_context import RequestContextManager
 from app.services.analytics.analytics_model import AnalyticsEvent
-from app.services.analytics.analytics_service import (
-    get_flag_analytics,
-    get_flag_time_series,
-)
+from app.services.analytics.analytics_service import get_flag_analytics, get_flag_time_series
 from app.services.analytics.repositories.analytics_repository import AnalyticsRepository
 
 

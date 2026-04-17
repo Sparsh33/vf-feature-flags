@@ -1,5 +1,6 @@
 """Feature-flag evaluation service — hot path."""
 
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from app.common.errors import EvalError, FlagNotFound
@@ -7,14 +8,8 @@ from app.common.logging_helpers import LoggingData, log_info, log_warning
 from app.services.eval.bucketing import Cohort, compute_bucket, pick_cohort
 from app.services.eval.cache import compute_cache_key, get_cached, set_cached
 from app.services.eval.eval_model import EvalResponse
-
-
-def _safe_log(fn, data: LoggingData) -> None:
-    try:
-        fn(data)
-    except Exception:  # pragma: no cover - shared logger has known key clash bug
-        pass
-
+from app.services.flag.flag_model import FlagConfig
+from app.services.flag.flag_service import FlagService
 
 REASON_CACHED = "cached"
 REASON_COMPUTED = "computed"
@@ -35,61 +30,26 @@ class FlagEvalError(EvalError):
         self.default_value = default_value
 
 
-def _normalize_flag(flag: Any) -> Optional[Dict[str, Any]]:
-    if flag is None:
-        return None
-    if isinstance(flag, dict):
-        return flag
-    dumper = getattr(flag, "model_dump", None)
-    if callable(dumper):
-        return dumper()
-    return None
-
-
-async def _load_flag(client_id: str, flag_key: str) -> Dict[str, Any]:
+async def _load_flag(client_id: str, flag_key: str) -> FlagConfig:
+    service = FlagService()
     try:
-        from app.services.flag.repositories.flag_repository import (  # type: ignore
-            FlagRepository,
-        )
-    except ImportError:
-        FlagRepository = None  # type: ignore
-    if FlagRepository is None:
-        raise FlagNotFound(f"flag_repo_unavailable:{flag_key}")
-    repository = FlagRepository()
-    try:
-        flag = await repository.get_by_key(client_id=client_id, flag_key=flag_key)
+        flag = await service.get_flag_by_key_for_eval(client_id=client_id, flag_key=flag_key)
     except Exception as exc:
         raise FlagLoadError(str(exc)) from exc
-    normalized = _normalize_flag(flag)
-    if normalized is None:
+    if flag is None:
         raise FlagNotFound(flag_key)
-    if normalized.get("is_deleted"):
-        raise FlagNotFound(flag_key)
-    if normalized.get("status") and normalized.get("status") != "active":
-        raise FlagNotFound(flag_key)
-    return normalized
-
-
-def _extract_cohorts(flag: Dict[str, Any]) -> list:
-    raw_cohorts = flag.get("cohorts") or []
-    cohorts: list = []
-    for item in raw_cohorts:
-        if isinstance(item, Cohort):
-            cohorts.append(item)
-        elif isinstance(item, dict):
-            cohorts.append(Cohort(**item))
-    return cohorts
+    return flag
 
 
 def _build_computed_response(
-    flag: Dict[str, Any], client_id: str, flag_key: str, body: Dict[str, Any]
+    flag: FlagConfig, client_id: str, flag_key: str, body: Dict[str, Any]
 ) -> Tuple[EvalResponse, Optional[Cohort]]:
-    cohorts = _extract_cohorts(flag)
+    cohorts = flag.cohorts
     bucket = compute_bucket(client_id=client_id, flag_key=flag_key, params=body)
     cohort = pick_cohort(bucket=bucket, cohorts=cohorts)
     if cohort is None:
         response = EvalResponse(
-            value=flag.get("default_value"),
+            value=flag.default_value,
             cohort_id=None,
             cohort_name=None,
             reason=REASON_COMPUTED,
@@ -113,7 +73,6 @@ def _emit_eval_event(
     reason: str,
 ) -> None:
     try:
-        from datetime import datetime, timezone
         from app.services.analytics.tasks import record_eval_event  # type: ignore
 
         record_eval_event.delay(
@@ -128,13 +87,12 @@ def _emit_eval_event(
             }
         )
     except Exception as exc:
-        _safe_log(
-            log_warning,
+        log_warning(
             LoggingData(
                 message="eval.analytics_emit_failed",
                 context={"flag_key": flag_key, "client_id": client_id},
                 error=exc,
-            ),
+            )
         )
 
 
@@ -142,12 +100,11 @@ async def evaluate(client_id: str, flag_key: str, body: Dict[str, Any]) -> EvalR
     cache_key = compute_cache_key(client_id=client_id, flag_key=flag_key, body=body)
     cached = await get_cached(cache_key)
     if cached is not None:
-        _safe_log(
-            log_info,
+        log_info(
             LoggingData(
                 message="eval.cache_hit",
                 context={"flag_key": flag_key, "client_id": client_id},
-            ),
+            )
         )
         return EvalResponse(
             value=cached.get("value"),
@@ -161,10 +118,10 @@ async def evaluate(client_id: str, flag_key: str, body: Dict[str, Any]) -> EvalR
             flag=flag, client_id=client_id, flag_key=flag_key, body=body
         )
     except Exception as exc:
-        raise FlagEvalError(str(exc), default_value=flag.get("default_value")) from exc
+        raise FlagEvalError(str(exc), default_value=flag.default_value) from exc
     await set_cached(cache_key, response.model_dump())
     _emit_eval_event(
-        flag_id=flag.get("id") or flag.get("_id"),
+        flag_id=flag.id,
         flag_key=flag_key,
         client_id=client_id,
         cohort_id=response.cohort_id,

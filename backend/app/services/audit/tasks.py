@@ -24,37 +24,27 @@ async def _run_insert(payload: Dict[str, Any]) -> None:
         await mongodb.close()
 
 
-def _safe_log_warning(message: str, context: Dict[str, Any]) -> None:
-    try:
-        log_warning(LoggingData(message=message, context=context))
-    except Exception:
-        pass
-
-
-def _safe_log_error(message: str, context: Dict[str, Any], error: Exception) -> None:
-    try:
-        log_error(LoggingData(message=message, context=context, error=error))
-    except Exception:
-        pass
-
-
 @celery.task(name="audit.record", bind=True, max_retries=3, default_retry_delay=5)
 def record_audit_event(self, payload: Dict[str, Any]) -> None:  # type: ignore[no-untyped-def]
     """Persist an audit event. Retries on transient Mongo errors."""
     try:
         asyncio.run(_run_insert(payload))
     except PyMongoError as exc:
-        _safe_log_warning(
-            "audit.record transient error; will retry",
-            {"action": payload.get("action"), "attempt": self.request.retries},
+        log_warning(
+            LoggingData(
+                message="audit.record transient error; will retry",
+                context={"action": payload.get("action"), "attempt": self.request.retries},
+            )
         )
         raise self.retry(exc=exc)
     except Retry:
         raise
     except Exception as exc:
-        _safe_log_error(
-            "audit.record failed permanently",
-            {"action": payload.get("action")},
-            exc,
+        log_error(
+            LoggingData(
+                message="audit.record failed permanently",
+                context={"action": payload.get("action")},
+                error=exc,
+            )
         )
         raise

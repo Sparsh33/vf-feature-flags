@@ -43,7 +43,10 @@ function CustomTooltip({
   );
 }
 
-export function CohortBarChart({ data, height = 280 }: CohortBarChartProps): JSX.Element {
+export function CohortBarChart({
+  data,
+  height = 280,
+}: CohortBarChartProps): JSX.Element {
   const chartData = data.map((stat) => ({
     ...stat,
     label: stat.cohort_name || stat.cohort_id || "unknown",
@@ -61,7 +64,10 @@ export function CohortBarChart({ data, height = 280 }: CohortBarChartProps): JSX
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={chartData}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-800" />
+        <CartesianGrid
+          strokeDasharray="3 3"
+          className="stroke-zinc-200 dark:stroke-zinc-800"
+        />
         <XAxis dataKey="label" tick={{ fontSize: 11 }} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip content={<CustomTooltip />} />

@@ -49,7 +49,7 @@ export function ExtractedParamsPanel({
               "rounded-md border p-3",
               filled
                 ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                : "border-dashed border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/30"
+                : "border-dashed border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/30",
             )}
           >
             <div className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -58,7 +58,9 @@ export function ExtractedParamsPanel({
             <pre
               className={cn(
                 "whitespace-pre-wrap break-words",
-                filled ? "text-zinc-900 dark:text-zinc-100" : "italic text-zinc-400"
+                filled
+                  ? "text-zinc-900 dark:text-zinc-100"
+                  : "italic text-zinc-400",
               )}
             >
               {renderValue(value)}

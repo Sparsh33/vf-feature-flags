@@ -3,7 +3,7 @@
 from fastapi import HTTPException, status
 
 from app.common.errors import ConflictError, InvalidCredentials, UserNotFound
-from app.common.logging_helpers import LoggingData
+from app.common.logging_helpers import LoggingData, log_error
 from app.services.auth.auth_model import (
     LoginRequest,
     LoginResponse,
@@ -13,7 +13,6 @@ from app.services.auth.auth_model import (
     UserPublic,
 )
 from app.services.auth.auth_service import AuthService
-from app.services.auth.logging_shim import log_error
 
 
 class AuthController:

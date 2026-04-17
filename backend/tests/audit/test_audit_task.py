@@ -26,7 +26,11 @@ def _make_payload(action: str = "flag.create") -> dict:
 
 async def test_run_insert_persists_log():
     payload = _make_payload()
-    await _run_insert(payload)
+    with (
+        patch("app.services.audit.tasks.mongodb.connect", new=AsyncMock(return_value=None)),
+        patch("app.services.audit.tasks.mongodb.close", new=AsyncMock(return_value=None)),
+    ):
+        await _run_insert(payload)
     repository = AuditRepository()
     logs, total = await repository.list_logs(
         client_id="client-a",

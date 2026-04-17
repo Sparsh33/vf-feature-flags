@@ -11,7 +11,7 @@ def _utcnow() -> datetime:
 
 
 class Cohort(BaseModel):
-    id: str
+    id: Optional[str] = None
     name: str
     percentage: float
     value: Any = None

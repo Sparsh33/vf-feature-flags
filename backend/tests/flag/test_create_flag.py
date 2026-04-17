@@ -107,6 +107,30 @@ async def test_create_flag_via_http_duplicate_returns_409(http_client, create_re
     assert second.status_code == 409
 
 
+async def test_create_flag_assigns_uuids_when_cohorts_have_none_id(service):
+    """Cohort.id is Optional[str] = None. When the NL path (or any caller)
+    omits ids, FlagService.create_flag must assign server-side UUIDs so the
+    eval bucketing hash ring stays stable.
+    """
+    request = FlagCreateRequest(
+        flag_key="id_less_create",
+        name="ID-less create",
+        default_value=False,
+        cohorts=[
+            Cohort(name="control", percentage=50.0, value=False),  # id=None
+            Cohort(name="treatment", percentage=50.0, value=True),  # id=None
+        ],
+        status="active",
+    )
+    assert all(cohort.id is None for cohort in request.cohorts)
+    flag = await service.create_flag(request)
+    assert len(flag.cohorts) == 2
+    ids = {cohort.id for cohort in flag.cohorts}
+    assert None not in ids
+    assert all(isinstance(cid, str) and cid for cid in ids)
+    assert len(ids) == 2  # unique ids per cohort
+
+
 async def test_create_flag_via_http_bad_sum_returns_422(http_client):
     body = {
         "flag_key": "bad_http",

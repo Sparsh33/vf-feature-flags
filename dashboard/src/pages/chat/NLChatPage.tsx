@@ -9,7 +9,10 @@ import type {
   FlagCreateRequest,
   NLChatResponse,
 } from "@/types/feature_api";
-import { MessageBubble, type ChatMessage } from "@/components/chat/MessageBubble";
+import {
+  MessageBubble,
+  type ChatMessage,
+} from "@/components/chat/MessageBubble";
 import { ExtractedParamsPanel } from "@/components/chat/ExtractedParamsPanel";
 import { DraftFlagPreview } from "@/components/chat/DraftFlagPreview";
 
@@ -25,7 +28,10 @@ export default function NLChatPage(): JSX.Element {
   const [compactedThisSession, setCompactedThisSession] = useState(false);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<SidePanelTab>("extracted");
-  const [toast, setToast] = useState<{ message: string; flagId: string } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    flagId: string;
+  } | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
 
   const mutation = useMutation<NLChatResponse, Error, string>({
@@ -123,7 +129,8 @@ export default function NLChatPage(): JSX.Element {
             <div className="mx-auto max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
               Describe the flag in plain English. Example:{" "}
               <span className="font-mono">
-                &ldquo;Roll out the new checkout to 20% of users in the US&rdquo;
+                &ldquo;Roll out the new checkout to 20% of users in the
+                US&rdquo;
               </span>
               .
             </div>
@@ -132,7 +139,9 @@ export default function NLChatPage(): JSX.Element {
             <MessageBubble key={idx} message={message} />
           ))}
           {sending ? (
-            <div className="text-xs italic text-muted-foreground">Assistant is typing…</div>
+            <div className="text-xs italic text-muted-foreground">
+              Assistant is typing…
+            </div>
           ) : null}
         </div>
         <div className="border-t p-3">

@@ -18,21 +18,21 @@ export interface TimeSeriesParams extends AnalyticsTimeParams {
 export const analyticsApi = {
   getFlagAnalytics: async (
     flag_id: string,
-    params: AnalyticsTimeParams = {}
+    params: AnalyticsTimeParams = {},
   ): Promise<FlagAnalyticsResponse> => {
     const { data } = await api.get<FlagAnalyticsResponse>(
       `/analytics/flags/${flag_id}`,
-      { params }
+      { params },
     );
     return data;
   },
   getFlagTimeSeries: async (
     flag_id: string,
-    params: TimeSeriesParams = {}
+    params: TimeSeriesParams = {},
   ): Promise<FlagAnalyticsTimeSeriesResponse> => {
     const { data } = await api.get<FlagAnalyticsTimeSeriesResponse>(
       `/analytics/flags/${flag_id}/time-series`,
-      { params }
+      { params },
     );
     return data;
   },
@@ -40,13 +40,15 @@ export const analyticsApi = {
   // MVP fallback: list flags + call getFlagAnalytics per flag (done in page).
   listFlags: async (): Promise<FlagSummary[]> => {
     const { data } = await api.get<FlagSummary[] | { flags: FlagSummary[] }>(
-      "/flags"
+      "/flags",
     );
     if (Array.isArray(data)) return data;
     return data.flags ?? [];
   },
   getTenantOverview: async (): Promise<AnalyticsOverviewResponse> => {
-    const { data } = await api.get<AnalyticsOverviewResponse>("/analytics/overview");
+    const { data } = await api.get<AnalyticsOverviewResponse>(
+      "/analytics/overview",
+    );
     return data;
   },
 };

@@ -65,7 +65,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // ---------- Auth ----------
@@ -77,7 +77,9 @@ export const authApi = {
     api.post<LoginResponse>("/auth/login", payload).then((r) => r.data),
   me: (): Promise<User> => api.get<User>("/auth/me").then((r) => r.data),
   rotateApiKey: (): Promise<RotateApiKeyResponse> =>
-    api.post<RotateApiKeyResponse>("/clients/rotate-api-key").then((r) => r.data),
+    api
+      .post<RotateApiKeyResponse>("/clients/rotate-api-key")
+      .then((r) => r.data),
 };
 
 // ---------- Flags ----------
@@ -123,19 +125,19 @@ export const analyticsApi = {
       .then((r) => r.data),
   getFlagAnalytics: (
     flagId: string,
-    params: AnalyticsParams = {}
+    params: AnalyticsParams = {},
   ): Promise<FlagAnalyticsResponse> =>
     api
       .get<FlagAnalyticsResponse>(`/analytics/flags/${flagId}`, { params })
       .then((r) => r.data),
   getFlagTimeSeries: (
     flagId: string,
-    params: AnalyticsParams = {}
+    params: AnalyticsParams = {},
   ): Promise<FlagAnalyticsTimeSeriesResponse> =>
     api
       .get<FlagAnalyticsTimeSeriesResponse>(
         `/analytics/flags/${flagId}/timeseries`,
-        { params }
+        { params },
       )
       .then((r) => r.data),
 };

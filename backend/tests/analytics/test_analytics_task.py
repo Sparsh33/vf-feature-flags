@@ -18,7 +18,10 @@ async def test_record_eval_event_async_deserializes_ts_and_inserts():
         "reason": "computed",
         "ts": ts.isoformat(),
     }
-    with patch("app.services.analytics.tasks.mongodb.connect", return_value=None):
+    with (
+        patch("app.services.analytics.tasks.mongodb.connect", return_value=None),
+        patch("app.services.analytics.tasks.mongodb.close", return_value=None),
+    ):
         await _record_eval_event_async(payload)
     repository = AnalyticsRepository()
     collection = await repository._get_collection()
@@ -44,7 +47,10 @@ async def test_record_eval_event_async_handles_fallback_payload():
         "reason": "not_found",
         "ts": ts.isoformat(),
     }
-    with patch("app.services.analytics.tasks.mongodb.connect", return_value=None):
+    with (
+        patch("app.services.analytics.tasks.mongodb.connect", return_value=None),
+        patch("app.services.analytics.tasks.mongodb.close", return_value=None),
+    ):
         await _record_eval_event_async(payload)
     repository = AnalyticsRepository()
     collection = await repository._get_collection()

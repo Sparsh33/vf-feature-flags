@@ -24,9 +24,7 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function newCohortRow(
-  partial: Partial<CohortRow> = {}
-): CohortRow {
+export function newCohortRow(partial: Partial<CohortRow> = {}): CohortRow {
   return {
     id: partial.id ?? makeId(),
     name: partial.name ?? "",
@@ -61,8 +59,8 @@ export function CohortEditor({ rows, onChange }: CohortEditorProps) {
     const remaining = Math.max(0, Math.min(100, 100 - othersSum));
     onChange(
       rows.map((row) =>
-        row.id === targetId ? { ...row, percentage: remaining } : row
-      )
+        row.id === targetId ? { ...row, percentage: remaining } : row,
+      ),
     );
   };
 
@@ -113,7 +111,9 @@ export function CohortEditor({ rows, onChange }: CohortEditorProps) {
                   <Input
                     id={`cohort-name-${row.id}`}
                     value={row.name}
-                    onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                    onChange={(e) =>
+                      updateRow(row.id, { name: e.target.value })
+                    }
                     placeholder="e.g. beta-users"
                   />
                 </div>

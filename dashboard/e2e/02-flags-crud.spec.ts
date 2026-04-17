@@ -21,7 +21,9 @@ test.beforeEach(async ({ page }) => {
 const FLAG_KEY = `rollout_playwright_${Date.now()}`;
 
 test.describe("Flags CRUD", () => {
-  test("create flag via UI with two cohorts summing to 100", async ({ page }) => {
+  test("create flag via UI with two cohorts summing to 100", async ({
+    page,
+  }) => {
     await page.goto("/flags");
     await page.getByRole("button", { name: /new flag/i }).click();
 
@@ -29,9 +31,7 @@ test.describe("Flags CRUD", () => {
 
     await page.getByLabel("Flag key").fill(FLAG_KEY);
     await page.getByLabel("Name").fill("Playwright rollout");
-    await page
-      .getByLabel("Default value (JSON)")
-      .fill('{"mode":"off"}');
+    await page.getByLabel("Default value (JSON)").fill('{"mode":"off"}');
 
     // Add two cohorts: A 60% and B 40%.
     const addCohort = page.getByRole("button", { name: /add cohort/i });
@@ -56,8 +56,9 @@ test.describe("Flags CRUD", () => {
 
     await page.getByRole("button", { name: /create flag/i }).click();
 
-    // Either we land on the detail page or back on /flags.
-    await expect(page).toHaveURL(/\/flags\/[^/]+$/, { timeout: 10_000 });
+    // Wait for the mutation to succeed and navigate us off /flags/new to the
+    // new detail page at /flags/<id>.
+    await expect(page).toHaveURL(/\/flags\/(?!new$)[^/]+$/, { timeout: 10_000 });
 
     // Pick up flag id from the URL and stash for downstream specs.
     const match = page.url().match(/\/flags\/([^/?#]+)/);
@@ -70,9 +71,13 @@ test.describe("Flags CRUD", () => {
     await expect(page.getByText(FLAG_KEY)).toBeVisible();
   });
 
-  test("cohort sum over 100 disables save and shows red badge", async ({ page }) => {
+  test("cohort sum over 100 disables save and shows red badge", async ({
+    page,
+  }) => {
     await page.goto("/flags");
-    await page.getByText(FLAG_KEY).click();
+    // Flag key text is not clickable; navigate via the row's Edit button.
+    const row = page.locator("tr", { hasText: FLAG_KEY });
+    await row.getByRole("button", { name: "Edit" }).click();
 
     await expect(page).toHaveURL(/\/flags\/[^/]+$/);
 
@@ -80,12 +85,15 @@ test.describe("Flags CRUD", () => {
     await pctInputs.nth(0).fill("70");
 
     await expect(page.getByText(/^110%$/)).toBeVisible();
-    await expect(page.getByRole("button", { name: /save changes/i })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: /save changes/i }),
+    ).toBeDisabled();
   });
 
   test("distribute remaining brings sum back to 100", async ({ page }) => {
     await page.goto("/flags");
-    await page.getByText(FLAG_KEY).click();
+    const row = page.locator("tr", { hasText: FLAG_KEY });
+    await row.getByRole("button", { name: "Edit" }).click();
 
     const pctInputs = page.locator('input[id^="cohort-pct-"]');
     // Force imbalance first so the distribute button has work to do.
@@ -104,8 +112,16 @@ test.describe("Flags CRUD", () => {
     await page.getByLabel("Flag key").fill(throwawayKey);
     await page.getByLabel("Name").fill("Throwaway");
     await page.getByLabel("Default value (JSON)").fill('"off"');
+    // Backend requires cohorts summing to 100 — add a single 100% cohort.
+    await page.getByRole("button", { name: /add cohort/i }).click();
+    await page.locator('input[id^="cohort-name-"]').nth(0).fill("only");
+    await page.locator('input[id^="cohort-pct-"]').nth(0).fill("100");
+    await page.locator('textarea[id^="cohort-val-"]').nth(0).fill('"on"');
     await page.getByRole("button", { name: /create flag/i }).click();
-    await expect(page).toHaveURL(/\/flags\/[^/]+$/);
+    // Wait for navigation to the detail page — URL must not be /flags/new.
+    await expect(page).toHaveURL(/\/flags\/(?!new$)[^/]+$/, {
+      timeout: 10_000,
+    });
 
     await page.goto("/flags");
     await expect(page.getByText(throwawayKey)).toBeVisible();
@@ -119,7 +135,9 @@ test.describe("Flags CRUD", () => {
     await dialog.getByRole("button", { name: /^delete$/i }).click();
 
     // Either the row disappears or a toast appears.
-    await expect(page.getByText(/flag deleted/i)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/flag deleted/i).first()).toBeVisible({
+      timeout: 5_000,
+    });
     await expect(page.getByText(throwawayKey)).toHaveCount(0);
   });
 

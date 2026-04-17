@@ -1,10 +1,7 @@
 // Minimal toast hook inspired by shadcn/ui's reference implementation.
 import * as React from "react";
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast";
+import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 5;
 const TOAST_REMOVE_DELAY = 5000;
@@ -57,7 +54,7 @@ function reducer(state: State, action: ActionType): State {
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === action.toast.id ? { ...t, ...action.toast } : t
+          t.id === action.toast.id ? { ...t, ...action.toast } : t,
         ),
       };
     case "DISMISS_TOAST": {
@@ -70,7 +67,7 @@ function reducer(state: State, action: ActionType): State {
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined ? { ...t, open: false } : t
+          t.id === toastId || toastId === undefined ? { ...t, open: false } : t,
         ),
       };
     }
@@ -114,7 +111,10 @@ export function toast(props: ToastInput): {
       },
     },
   });
-  return { id, dismiss, update } as unknown as { id: string; dismiss: () => void };
+  return { id, dismiss, update } as unknown as {
+    id: string;
+    dismiss: () => void;
+  };
 }
 
 export function useToast(): {
@@ -133,7 +133,6 @@ export function useToast(): {
   return {
     toasts: state.toasts,
     toast,
-    dismiss: (toastId?: string) =>
-      dispatch({ type: "DISMISS_TOAST", toastId }),
+    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   };
 }

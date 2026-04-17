@@ -71,10 +71,10 @@ export interface FlagAnalyticsTimeSeriesResponse {
 
 export interface FlagSummary {
   id: string;
-  key: string;
+  flag_key: string;
   name: string;
   description?: string;
-  enabled: boolean;
+  status?: string;
 }
 
 export interface AnalyticsOverviewResponse {

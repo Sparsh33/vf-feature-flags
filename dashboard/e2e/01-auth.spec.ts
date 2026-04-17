@@ -23,7 +23,9 @@ test.describe("Auth flows", () => {
   const email = uniqueEmail("pw-primary");
   const clientName = "Playwright Co";
 
-  test("signup happy path captures API key and lands on /flags", async ({ page }) => {
+  test("signup happy path captures API key and lands on /flags", async ({
+    page,
+  }) => {
     await signupUi(page, email, password, clientName);
 
     // The copy-once modal appears and holds the API key until dismissed.
@@ -61,7 +63,9 @@ test.describe("Auth flows", () => {
     await expect(toast).toBeVisible({ timeout: 5_000 });
   });
 
-  test("me endpoint persists email in header across reload", async ({ page }) => {
+  test("me endpoint persists email in header across reload", async ({
+    page,
+  }) => {
     await loginUi(page, email, password);
     await expect(page.getByText(email)).toBeVisible();
     await page.reload();

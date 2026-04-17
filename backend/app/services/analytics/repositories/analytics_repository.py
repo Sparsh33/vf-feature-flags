@@ -33,6 +33,16 @@ class AnalyticsRepository(BaseRepository):
         document = event.model_dump(exclude={"id"})
         await collection.insert_one(document)
 
+    async def get_latest_flag_key(self, client_id: str, flag_id: str) -> str:
+        collection = await self._get_collection()
+        document = await collection.find_one(
+            {"client_id": client_id, "flag_id": flag_id},
+            sort=[("ts", -1)],
+        )
+        if document is None:
+            return ""
+        return document.get("flag_key", "")
+
     async def aggregate_by_cohort(
         self,
         client_id: str,

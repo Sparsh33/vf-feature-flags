@@ -43,7 +43,13 @@ export default function AuditLogPage(): JSX.Element {
       from_ts: toIsoFromLocal(filters.fromTs),
       to_ts: toIsoFromLocal(filters.toTs),
     }),
-    [primaryAction, filters.resourceType, filters.resourceId, filters.fromTs, filters.toTs]
+    [
+      primaryAction,
+      filters.resourceType,
+      filters.resourceId,
+      filters.fromTs,
+      filters.toTs,
+    ],
   );
 
   const infinite = useInfiniteQuery<AuditLogListResponse>({
@@ -76,7 +82,9 @@ export default function AuditLogPage(): JSX.Element {
         <FileText className="h-5 w-5 text-muted-foreground" />
         <h1 className="text-xl font-semibold">Audit log</h1>
         {total > 0 ? (
-          <span className="text-xs text-muted-foreground">· {total} entries</span>
+          <span className="text-xs text-muted-foreground">
+            · {total} entries
+          </span>
         ) : null}
       </div>
       <AuditFilters value={filters} onChange={setFilters} />

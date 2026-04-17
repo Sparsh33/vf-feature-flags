@@ -176,6 +176,7 @@ async def _try_commit_flag(session: NLSession) -> Optional[str]:
     if draft is None:
         return None
     try:
+        from app.services.flag.flag_model import FlagCreateRequest  # type: ignore
         from app.services.flag.flag_service import FlagService  # type: ignore
     except ImportError:
         log_info(
@@ -186,8 +187,9 @@ async def _try_commit_flag(session: NLSession) -> Optional[str]:
         )
         return None
     try:
+        request = FlagCreateRequest(**draft)
         service = FlagService()
-        created = await service.create_flag(draft)  # type: ignore[attr-defined]
+        created = await service.create_flag(request)  # type: ignore[attr-defined]
         flag_id = getattr(created, "id", None)
         return flag_id
     except Exception as exc:

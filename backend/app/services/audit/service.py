@@ -8,14 +8,6 @@ from app.middleware.request_context import RequestContextManager
 from app.services.audit.tasks import record_audit_event
 
 
-def _safe_log_warning(message: str, context: Dict[str, Any]) -> None:
-    try:
-        log_warning(LoggingData(message=message, context=context))
-    except Exception:
-        # Logging must never break audit_emit's no-raise contract.
-        pass
-
-
 def audit_emit(
     action: str,
     resource_type: str,
@@ -27,9 +19,11 @@ def audit_emit(
     actor = RequestContextManager.get_actor_info()
     client_id = actor.get("client_id")
     if not client_id:
-        _safe_log_warning(
-            "audit_emit skipped: client_id missing from request context",
-            {"action": action, "resource_type": resource_type},
+        log_warning(
+            LoggingData(
+                message="audit_emit skipped: client_id missing from request context",
+                context={"action": action, "resource_type": resource_type},
+            )
         )
         return
     payload: Dict[str, Any] = {
@@ -47,7 +41,9 @@ def audit_emit(
     try:
         record_audit_event.delay(payload)
     except Exception as exc:
-        _safe_log_warning(
-            "audit_emit: failed to enqueue celery task",
-            {"action": action, "error": str(exc)},
+        log_warning(
+            LoggingData(
+                message="audit_emit: failed to enqueue celery task",
+                context={"action": action, "error": str(exc)},
+            )
         )

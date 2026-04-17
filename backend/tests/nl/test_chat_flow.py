@@ -141,3 +141,88 @@ async def test_triggering_compaction_sets_flag(mock_chat_turn, mock_summarize):
     mock_chat_turn([("reply", {"flag_key": "x"}, False, 200_000)])
     response = await nl_service.chat(NLChatRequest(session_id=None, message="hi"))
     assert response.compacted is True
+
+
+class _CreatedStub:
+    """Lightweight stand-in for FlagConfig returned by FlagService.create_flag."""
+
+    id = "flag-created-123"
+
+
+async def test_try_commit_flag_invokes_flag_service_with_real_request_model(monkeypatch):
+    """Exercises the contract fix: `_try_commit_flag` must pass a FlagCreateRequest
+    (not a raw dict) to FlagService.create_flag. Stubs `create_flag` so we can
+    assert the argument type + shape, but `FlagCreateRequest(**draft)` runs for real
+    and Cohort.id=None must not break validation.
+    """
+    from app.services.flag import flag_service as flag_service_module
+    from app.services.flag.flag_model import FlagCreateRequest
+    from app.services.nl.nl_model import ExtractedParams, NLSession
+
+    captured: Dict[str, Any] = {}
+
+    async def _fake_create_flag(self, request):
+        captured["request"] = request
+        return _CreatedStub()
+
+    monkeypatch.setattr(flag_service_module.FlagService, "create_flag", _fake_create_flag)
+    session = NLSession(
+        client_id="client-a",
+        user_id="user-1",
+        extracted=ExtractedParams(
+            flag_key="dark_mode",
+            name="Dark Mode",
+            description=None,
+            default_value=False,
+            cohorts=[
+                # Intentionally no `id` field — covers Cohort.id=None path.
+                {"name": "on", "percentage": 50, "value": True},
+                {"name": "off", "percentage": 50, "value": False},
+            ],
+        ),
+    )
+    result = await nl_service._try_commit_flag(session)
+    assert result == "flag-created-123"
+    assert "request" in captured, "FlagService.create_flag must be called"
+    request = captured["request"]
+    assert isinstance(
+        request, FlagCreateRequest
+    ), f"create_flag must receive a FlagCreateRequest, got {type(request).__name__}"
+    assert request.flag_key == "dark_mode"
+    assert request.name == "Dark Mode"
+    assert request.default_value is False
+    assert len(request.cohorts) == 2
+    assert all(cohort.id is None for cohort in request.cohorts)
+
+
+async def test_try_commit_flag_invalid_draft_returns_none(monkeypatch):
+    """If `FlagCreateRequest(**draft)` fails validation, commit returns None and
+    does not blow up the caller. No FlagService.create_flag call is made.
+    """
+    from unittest.mock import AsyncMock
+    from app.services.flag import flag_service as flag_service_module
+    from app.services.nl.nl_model import ExtractedParams, NLSession
+
+    create_flag_mock = AsyncMock()
+    monkeypatch.setattr(flag_service_module.FlagService, "create_flag", create_flag_mock)
+    session = NLSession(
+        client_id="client-a",
+        user_id="user-1",
+        extracted=ExtractedParams(
+            flag_key="x",
+            name="X",
+            default_value=False,
+            cohorts=[
+                {"name": "on", "percentage": 50, "value": True},
+                {"name": "off", "percentage": 50, "value": False},
+            ],
+        ),
+    )
+
+    def _bad_draft(_extracted):
+        return {"flag_key": 123, "name": None}  # wrong types: FlagCreateRequest rejects
+
+    monkeypatch.setattr(nl_service, "_build_draft_flag", _bad_draft)
+    result = await nl_service._try_commit_flag(session)
+    assert result is None
+    create_flag_mock.assert_not_called()

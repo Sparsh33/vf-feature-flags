@@ -6,16 +6,24 @@ import pytest
 from fastapi import FastAPI, Header, HTTPException
 from httpx import ASGITransport, AsyncClient
 
-from app.services.audit import audit_route as audit_route_module
 from app.services.audit.audit_model import AuditLog
 from app.services.audit.audit_route import router as audit_router
 from app.services.audit.repositories.audit_repository import AuditRepository
+from app.services.auth.auth_model import UserPublic
+from app.services.auth.dependencies import get_current_user
 
 
-async def _header_client_id(x_client_id: str = Header(default=None, alias="X-Client-Id")) -> str:
+async def _header_current_user(
+    x_client_id: str = Header(default=None, alias="X-Client-Id"),
+) -> UserPublic:
     if not x_client_id:
         raise HTTPException(status_code=401, detail="Unauthorized: X-Client-Id required")
-    return x_client_id
+    return UserPublic(
+        id="test-user",
+        email="test@example.com",
+        client_id=x_client_id,
+        role="admin",
+    )
 
 
 @pytest.fixture
@@ -23,7 +31,7 @@ async def audit_client():
     app = FastAPI()
     app.include_router(audit_router, prefix="/api/audit")
     # Override the JWT-based auth dependency with a simple header-based one for testing.
-    app.dependency_overrides[audit_route_module._resolve_client_id] = _header_client_id
+    app.dependency_overrides[get_current_user] = _header_current_user
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client

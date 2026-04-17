@@ -64,8 +64,8 @@ export default function FlagEditorPage() {
           name: cohort.name,
           percentage: cohort.percentage,
           valueText: formatJson(cohort.value),
-        })
-      )
+        }),
+      ),
     );
     setHasLoaded(true);
   }, [existing.data, isNew, hasLoaded]);
@@ -181,8 +181,8 @@ export default function FlagEditorPage() {
                 placeholder="example_flag_key"
               />
               <p className="text-xs text-muted-foreground">
-                Allowed: lowercase letters, digits, underscores, hyphens
-                (regex: <span className="font-mono">[a-z0-9_-]+</span>).
+                Allowed: lowercase letters, digits, underscores, hyphens (regex:{" "}
+                <span className="font-mono">[a-z0-9_-]+</span>).
               </p>
               {isNew && flagKey && !flagKeyValid ? (
                 <p className="text-xs text-destructive">
@@ -229,7 +229,8 @@ export default function FlagEditorPage() {
                 className="text-sm text-primary hover:underline"
                 onClick={() => setShowParamsSchema((s) => !s)}
               >
-                {showParamsSchema ? "Hide" : "Show"} parameters schema (optional)
+                {showParamsSchema ? "Hide" : "Show"} parameters schema
+                (optional)
               </button>
               {showParamsSchema ? (
                 <>

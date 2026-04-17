@@ -12,12 +12,7 @@ export const AUDIT_ACTIONS = [
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const RESOURCE_TYPES = [
-  "flag",
-  "cohort",
-  "client",
-  "user",
-] as const;
+export const RESOURCE_TYPES = ["flag", "cohort", "client", "user"] as const;
 
 export interface AuditFilterState {
   actions: string[];
@@ -32,7 +27,10 @@ interface AuditFiltersProps {
   onChange: (next: AuditFilterState) => void;
 }
 
-export function AuditFilters({ value, onChange }: AuditFiltersProps): JSX.Element {
+export function AuditFilters({
+  value,
+  onChange,
+}: AuditFiltersProps): JSX.Element {
   const toggleAction = (action: string) => {
     const next = value.actions.includes(action)
       ? value.actions.filter((a) => a !== action)
@@ -61,7 +59,9 @@ export function AuditFilters({ value, onChange }: AuditFiltersProps): JSX.Elemen
         </button>
       </div>
       <div>
-        <div className="mb-1 text-xs font-medium text-muted-foreground">Actions</div>
+        <div className="mb-1 text-xs font-medium text-muted-foreground">
+          Actions
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {AUDIT_ACTIONS.map((action) => {
             const active = value.actions.includes(action);
@@ -89,7 +89,9 @@ export function AuditFilters({ value, onChange }: AuditFiltersProps): JSX.Elemen
           </label>
           <select
             value={value.resourceType}
-            onChange={(e) => onChange({ ...value, resourceType: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...value, resourceType: e.target.value })
+            }
             className="w-full rounded-md border bg-background px-2 py-1.5 text-sm"
           >
             <option value="">Any</option>

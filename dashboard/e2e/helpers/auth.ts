@@ -48,7 +48,21 @@ export async function installApiProxy(page: Page): Promise<void> {
         body,
       });
     } catch (error) {
-      await route.abort();
+      // The page/context may have closed while an in-flight request was being
+      // forwarded (common at test teardown). Swallow these errors rather than
+      // failing the test with a proxy-layer exception.
+      const message = (error as Error).message ?? "";
+      if (
+        message.includes("Target page, context or browser has been closed") ||
+        message.includes("Request context disposed")
+      ) {
+        return;
+      }
+      try {
+        await route.abort();
+      } catch {
+        // Route may already be resolved if the page closed; ignore.
+      }
       throw error;
     }
   });
@@ -78,7 +92,7 @@ export async function signupUi(
   page: Page,
   email: string,
   password: string,
-  clientName: string
+  clientName: string,
 ): Promise<void> {
   await installApiProxy(page);
   await page.goto("/signup");
@@ -92,7 +106,9 @@ export async function signupUi(
  * Capture the API key shown in the copy-once dialog after signup, then dismiss it.
  * Returns the captured key (or null if not visible).
  */
-export async function captureApiKeyAndConfirm(page: Page): Promise<string | null> {
+export async function captureApiKeyAndConfirm(
+  page: Page,
+): Promise<string | null> {
   const dialog = page.getByRole("dialog");
   try {
     await dialog.waitFor({ state: "visible", timeout: 10_000 });
@@ -107,7 +123,11 @@ export async function captureApiKeyAndConfirm(page: Page): Promise<string | null
   return apiKey;
 }
 
-export async function loginUi(page: Page, email: string, password: string): Promise<void> {
+export async function loginUi(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
   await installApiProxy(page);
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
@@ -116,14 +136,17 @@ export async function loginUi(page: Page, email: string, password: string): Prom
   await expect(page).toHaveURL(/\/flags$/, { timeout: 10_000 });
 }
 
-export async function saveAuth(page: Page, file: string = AUTH_STATE_FILE): Promise<void> {
+export async function saveAuth(
+  page: Page,
+  file: string = AUTH_STATE_FILE,
+): Promise<void> {
   ensureStateDir();
   await page.context().storageState({ path: file });
 }
 
 export async function loadAuthContext(
   browser: Browser,
-  file: string = AUTH_STATE_FILE
+  file: string = AUTH_STATE_FILE,
 ): Promise<BrowserContext> {
   return browser.newContext({ storageState: file });
 }
@@ -145,5 +168,7 @@ export function writePrimaryUser(info: PrimaryUserInfo): void {
 
 export function readPrimaryUser(): PrimaryUserInfo | null {
   if (!fs.existsSync(PRIMARY_USER_FILE)) return null;
-  return JSON.parse(fs.readFileSync(PRIMARY_USER_FILE, "utf-8")) as PrimaryUserInfo;
+  return JSON.parse(
+    fs.readFileSync(PRIMARY_USER_FILE, "utf-8"),
+  ) as PrimaryUserInfo;
 }
