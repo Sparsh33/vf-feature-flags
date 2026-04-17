@@ -7,17 +7,25 @@ from fastapi import FastAPI, Header, HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from app.middleware.request_context import RequestContextManager
-from app.services.analytics import analytics_route as analytics_route_module
 from app.services.analytics.analytics_model import AnalyticsEvent
 from app.services.analytics.analytics_route import router as analytics_router
 from app.services.analytics.repositories.analytics_repository import AnalyticsRepository
+from app.services.auth.auth_model import UserPublic
+from app.services.auth.dependencies import get_current_user
 
 
-async def _header_client_id(x_client_id: str = Header(default=None, alias="X-Client-Id")) -> str:
+async def _header_current_user(
+    x_client_id: str = Header(default=None, alias="X-Client-Id"),
+) -> UserPublic:
     if not x_client_id:
         raise HTTPException(status_code=401, detail="Unauthorized: X-Client-Id required")
     RequestContextManager.set_client_id(x_client_id)
-    return x_client_id
+    return UserPublic(
+        id="test-user",
+        email="test@example.com",
+        client_id=x_client_id,
+        role="admin",
+    )
 
 
 @pytest.fixture
@@ -25,7 +33,7 @@ async def analytics_client():
     app = FastAPI()
     app.include_router(analytics_router, prefix="/api/analytics")
     # Override the JWT-based auth dependency with a simple header-based one for testing.
-    app.dependency_overrides[analytics_route_module._resolve_user] = _header_client_id
+    app.dependency_overrides[get_current_user] = _header_current_user
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as async_client:
         yield async_client

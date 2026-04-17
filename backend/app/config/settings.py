@@ -2,8 +2,20 @@
 
 from typing import List
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Values that must never be accepted as JWT_SECRET outside of local dev — these
+# have shipped in example configs, docs, or compose defaults and are therefore
+# publicly known. Keeping the set in one place makes it easy to extend.
+INSECURE_JWT_SECRETS = frozenset(
+    {
+        "change-me-in-prod",
+        "dev-insecure-change-me",
+        "",
+    }
+)
+LOCAL_ENV = "local"
 
 
 class Settings(BaseSettings):
@@ -14,7 +26,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    env: str = Field(default="local")
+    env: str = Field(default=LOCAL_ENV)
     mongo_uri: str = Field(default="mongodb://mongo:27017")
     mongo_db: str = Field(default="vf_feature_flags")
     redis_url: str = Field(default="redis://redis:6379/0")
@@ -28,6 +40,18 @@ class Settings(BaseSettings):
     nl_input_token_budget: int = Field(default=8192)
     nl_compaction_trigger: float = Field(default=0.70)
     cors_origins: str = Field(default="http://localhost:5173")
+
+    @model_validator(mode="after")
+    def _reject_insecure_jwt_secret_outside_local(self) -> "Settings":
+        if self.env == LOCAL_ENV:
+            return self
+        if self.jwt_secret in INSECURE_JWT_SECRETS:
+            raise ValueError(
+                f"JWT_SECRET must be set to a non-default, non-empty value when ENV='{self.env}' "
+                "(detected a well-known insecure default). Generate a random secret "
+                "(e.g. `openssl rand -hex 32`) and set JWT_SECRET in your environment."
+            )
+        return self
 
     @property
     def cors_origins_list(self) -> List[str]:

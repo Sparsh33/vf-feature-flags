@@ -1,9 +1,9 @@
 """Business logic for analytics: aggregation reads + async event emission."""
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from app.common.logging_helpers import LoggingData, log_warning
 from app.middleware.request_context import RequestContextManager
 from app.services.analytics.analytics_model import (
     CohortStats,
@@ -15,8 +15,6 @@ from app.services.analytics.repositories.analytics_repository import (
     VALID_INTERVALS,
     AnalyticsRepository,
 )
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_WINDOW_HOURS = 24
 
@@ -136,4 +134,14 @@ def emit_analytics_event(
         }
         record_eval_event.delay(payload)
     except Exception as exc:
-        logger.warning("Failed to emit analytics event: %s", exc)
+        log_warning(
+            LoggingData(
+                message="analytics.emit_event_failed",
+                context={
+                    "flag_id": flag_id,
+                    "flag_key": flag_key,
+                    "client_id": client_id,
+                    "error": str(exc),
+                },
+            )
+        )

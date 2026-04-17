@@ -120,3 +120,50 @@ async def test_time_series_rejects_bad_interval():
     base = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)
     with pytest.raises(ValueError):
         await repository.time_series("client-1", "flag-1", base, base + timedelta(hours=1), "week")
+
+
+async def test_get_latest_flag_key_returns_empty_when_no_events():
+    repository = AnalyticsRepository()
+    result = await repository.get_latest_flag_key("client-1", "flag-none")
+    assert result == ""
+
+
+async def test_get_latest_flag_key_returns_most_recent_by_ts():
+    repository = AnalyticsRepository()
+    older_ts = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)
+    newer_ts = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    await repository.insert(_make_event(flag_key="feat.old", ts=older_ts))
+    await repository.insert(_make_event(flag_key="feat.new", ts=newer_ts))
+    # Insert an out-of-order doc to prove sort works, not insertion order.
+    await repository.insert(
+        _make_event(flag_key="feat.middle", ts=datetime(2026, 1, 1, 11, 0, tzinfo=timezone.utc))
+    )
+    result = await repository.get_latest_flag_key("client-1", "flag-1")
+    assert result == "feat.new"
+
+
+async def test_get_latest_flag_key_is_client_scoped():
+    repository = AnalyticsRepository()
+    ts = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)
+    await repository.insert(_make_event(client_id="client-1", flag_key="feat.client_a", ts=ts))
+    await repository.insert(_make_event(client_id="client-2", flag_key="feat.client_b", ts=ts))
+    result_a = await repository.get_latest_flag_key("client-1", "flag-1")
+    result_b = await repository.get_latest_flag_key("client-2", "flag-1")
+    assert result_a == "feat.client_a"
+    assert result_b == "feat.client_b"
+
+
+async def test_get_latest_flag_key_returns_empty_when_flag_key_field_absent():
+    """Defensive: if a legacy doc has no flag_key field, return empty string."""
+    repository = AnalyticsRepository()
+    collection = await repository._get_collection()
+    await collection.insert_one(
+        {
+            "client_id": "client-1",
+            "flag_id": "flag-legacy",
+            # no flag_key
+            "ts": datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc),
+        }
+    )
+    result = await repository.get_latest_flag_key("client-1", "flag-legacy")
+    assert result == ""

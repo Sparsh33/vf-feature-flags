@@ -1,38 +1,21 @@
 """HTTP routes for the NL flag builder. Router exported without prefix (main.py adds it)."""
 
-from typing import Optional
-
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends
 
 from app.middleware.request_context import RequestContextManager
+from app.services.auth.auth_model import UserPublic
+from app.services.auth.dependencies import get_current_user
 from app.services.nl.nl_controller import NLController
 from app.services.nl.nl_model import NLChatRequest, NLChatResponse
 
 router = APIRouter()
 
-try:
-    from app.services.auth.auth_model import UserPublic
-    from app.services.auth.dependencies import get_current_user as _jwt_user
 
-    async def _resolve_identity(
-        current_user: UserPublic = Depends(_jwt_user),
-    ) -> None:
-        RequestContextManager.set_client_id(current_user.client_id)
-        RequestContextManager.set_user_id(current_user.id)
-
-except ImportError:
-
-    async def _resolve_identity(  # type: ignore[no-redef]
-        x_client_id: Optional[str] = Header(default=None, alias="X-Client-Id"),
-        x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
-    ) -> None:
-        if not x_client_id or not x_user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unauthorized: X-Client-Id and X-User-Id required",
-            )
-        RequestContextManager.set_client_id(x_client_id)
-        RequestContextManager.set_user_id(x_user_id)
+async def _resolve_identity(
+    current_user: UserPublic = Depends(get_current_user),
+) -> None:
+    RequestContextManager.set_client_id(current_user.client_id)
+    RequestContextManager.set_user_id(current_user.id)
 
 
 def _get_controller() -> NLController:

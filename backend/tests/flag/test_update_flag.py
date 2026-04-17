@@ -79,3 +79,61 @@ async def test_update_no_changes_returns_existing(service, create_request):
     updated = await service.update_flag(created.id, FlagUpdateRequest())
     assert updated.id == created.id
     assert updated.name == created.name
+
+
+async def test_update_with_idless_cohorts_gets_server_assigned_ids(service, create_request):
+    """An update that sends cohorts without ids must have fresh UUIDs assigned
+    for any new-name cohort — no cohort may ever be persisted with id=None,
+    since the evaluator depends on stable cohort ids for bucketing.
+    """
+    created = await service.create_flag(create_request)
+    control_id = next(c.id for c in created.cohorts if c.name == "control")
+    new_cohorts = [
+        Cohort(name="control", percentage=40.0, value=False),  # id=None, existing name
+        Cohort(name="fresh_cohort", percentage=60.0, value=True),  # id=None, new name
+    ]
+    assert all(cohort.id is None for cohort in new_cohorts)
+    updated = await service.update_flag(created.id, FlagUpdateRequest(cohorts=new_cohorts))
+    ids_by_name = {cohort.name: cohort.id for cohort in updated.cohorts}
+    assert ids_by_name["control"] == control_id  # existing name preserves id
+    fresh_id = ids_by_name["fresh_cohort"]
+    assert fresh_id and isinstance(fresh_id, str) and fresh_id != ""
+    assert fresh_id != control_id
+
+
+async def test_repo_refuses_insert_with_idless_cohort(monkeypatch, service):
+    """Repo-layer defense: even if the service somehow skips _assign_new_cohort_ids,
+    the repository must reject persistence of cohorts with null ids.
+    """
+    from app.services.flag.flag_model import Cohort as _Cohort, FlagConfig
+
+    # Bypass the service's id-assign + validation so we can prove the repo guard
+    # catches the raw case.
+    repository = service._repository
+
+    idless_flag = FlagConfig(
+        client_id="client-a",
+        flag_key="repo_guard_insert",
+        name="Repo Guard",
+        default_value=False,
+        cohorts=[
+            _Cohort(name="a", percentage=50.0, value=False),  # id=None
+            _Cohort(name="b", percentage=50.0, value=True),
+        ],
+    )
+    with pytest.raises(ValueError, match="missing an id"):
+        await repository.insert(idless_flag)
+
+
+async def test_repo_refuses_update_with_idless_cohort(service, create_request):
+    """Same repo-layer guard applies to the update path when cohorts are
+    replaced via raw repo.update (bypassing FlagService._reconcile_cohorts).
+    """
+    created = await service.create_flag(create_request)
+    repository = service._repository
+    with pytest.raises(ValueError, match="missing an id"):
+        await repository.update(
+            "client-a",
+            created.id,
+            {"cohorts": [{"name": "a", "percentage": 50.0, "value": False}]},  # no id
+        )

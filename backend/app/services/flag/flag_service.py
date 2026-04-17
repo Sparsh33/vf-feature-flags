@@ -1,6 +1,5 @@
 """Business logic for flag + cohort CRUD."""
 
-import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -27,7 +26,6 @@ _FLAG_KEY_PATTERN = re.compile(r"^[a-z0-9_-]{1,100}$")
 _ALLOWED_STATUSES = frozenset({"active", "draft"})
 _COHORT_SUM_TOLERANCE = 0.01
 _COHORT_SUM_TARGET = 100.0
-_logger = logging.getLogger("vf_ff.flag.service")
 
 
 class FlagService:
@@ -106,6 +104,16 @@ class FlagService:
             raise FlagNotFound(f"Flag '{flag_key}' not found")
         return flag
 
+    async def get_flag_by_key_for_eval(self, client_id: str, flag_key: str) -> Optional[FlagConfig]:
+        """Public read API for other domains. Returns the flag if it exists and
+        is active (is_deleted=False, status='active'), else None."""
+        flag = await self._repository.get_by_key(client_id=client_id, flag_key=flag_key)
+        if flag is None:
+            return None
+        if flag.is_deleted or (flag.status and flag.status != "active"):
+            return None
+        return flag
+
     async def list_flags(
         self,
         status: Optional[str] = None,
@@ -173,15 +181,29 @@ class FlagService:
                 reconciled.append(cohort.model_copy(update={"id": str(uuid.uuid4())}))
         return reconciled
 
-    def _emit_audit(self, action: str, flag_id: Optional[str], after: Dict[str, Any]) -> None:
-        if audit_emit is None or flag_id is None:
+    def _emit_audit(
+        self,
+        action: str,
+        resource_id: Optional[str],
+        after: Optional[Dict[str, Any]] = None,
+        before: Optional[Dict[str, Any]] = None,
+        resource_type: str = "flag",
+    ) -> None:
+        if audit_emit is None or resource_id is None:
             return
         try:
             audit_emit(
                 action=action,
-                resource_type="flag",
-                resource_id=flag_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                before=before,
                 after=after,
             )
-        except Exception:  # pragma: no cover - audit must never break writes
-            pass
+        except Exception as exc:  # pragma: no cover - audit must never break writes
+            log_error(
+                LoggingData(
+                    message="flag.audit_emit_failed",
+                    context={"action": action, "resource_id": resource_id},
+                    error=exc,
+                )
+            )

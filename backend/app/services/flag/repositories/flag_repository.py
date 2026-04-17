@@ -1,6 +1,5 @@
 """Repository for the `flags` collection. All queries are client-scoped."""
 
-import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,27 +9,28 @@ from pymongo import ASCENDING, DESCENDING, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from app.common.errors import FlagAlreadyExists
+from app.common.logging_helpers import LoggingData, log_warning
 from app.database.base_repository import BaseRepository
 from app.database.config import mongodb
 from app.database.indexes import register_index_builder
 from app.services.flag.flag_model import FlagConfig
-
-_logger = logging.getLogger("vf_ff.flag.repo")
 
 
 class FlagRepository(BaseRepository):
     COLLECTION_NAME = "flags"
 
     async def insert(self, flag: FlagConfig) -> FlagConfig:
+        self._require_cohort_ids(flag.cohorts, op="insert")
         collection = await self._get_collection()
         document = flag.model_dump(exclude={"id"})
         try:
             result = await collection.insert_one(document)
         except DuplicateKeyError as exc:
-            _logger.warning(
-                "Duplicate flag_key insert: client_id=%s flag_key=%s",
-                flag.client_id,
-                flag.flag_key,
+            log_warning(
+                LoggingData(
+                    message="flag.repo.duplicate_key_insert",
+                    context={"client_id": flag.client_id, "flag_key": flag.flag_key},
+                )
             )
             raise FlagAlreadyExists(
                 f"Flag with key '{flag.flag_key}' already exists for client"
@@ -80,6 +80,11 @@ class FlagRepository(BaseRepository):
             return None
         collection = await self._get_collection()
         updates = dict(updates)
+        # Defense-in-depth: if the caller is replacing cohorts, every cohort
+        # must carry a non-empty id. Missing ids would break the bucketing
+        # hash ring on subsequent evaluations (all users → same bucket).
+        if "cohorts" in updates:
+            self._require_cohort_ids(updates["cohorts"], op="update")
         updates["updated_at"] = datetime.now(timezone.utc)
         document = await collection.find_one_and_update(
             {"_id": object_id, "client_id": client_id, "is_deleted": False},
@@ -98,6 +103,25 @@ class FlagRepository(BaseRepository):
             {"$set": {"is_deleted": True, "updated_at": datetime.now(timezone.utc)}},
         )
         return result.modified_count == 1
+
+    def _require_cohort_ids(self, cohorts: Any, op: str) -> None:
+        """Reject persistence if any cohort lacks a non-empty id.
+        Cohort ids are the stable hash-ring key used by the evaluator; a null
+        id would collapse all users of that cohort into the same bucket.
+        """
+        if not cohorts:
+            return
+        for index, cohort in enumerate(cohorts):
+            cohort_id = (
+                cohort.id
+                if hasattr(cohort, "id")
+                else cohort.get("id") if isinstance(cohort, dict) else None
+            )
+            if not cohort_id:
+                raise ValueError(
+                    f"cohort at index {index} is missing an id; "
+                    f"refusing to {op} flag document with null cohort.id"
+                )
 
     def _coerce_object_id(self, flag_id: str) -> Optional[ObjectId]:
         try:
@@ -132,7 +156,12 @@ async def ensure_flag_indexes() -> None:
             name="flags_client_updated_at",
         )
     except Exception as exc:  # pragma: no cover - defensive
-        _logger.warning("Failed to create indexes for flags collection: %s", exc)
+        log_warning(
+            LoggingData(
+                message="flag.repo.index_creation_failed",
+                context={"collection": "flags", "error": str(exc)},
+            )
+        )
 
 
 register_index_builder(ensure_flag_indexes)

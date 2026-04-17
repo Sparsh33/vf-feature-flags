@@ -267,7 +267,9 @@ All via `.env` (see `.env.example` for the canonical list).
 
 ## Deployment — Docker only
 
-The entire stack ships as Docker containers. `docker-compose.yml` is the single source of truth for both local development and production-like environments. Nothing special is required to "deploy" — run the same compose file on any host with Docker Engine.
+> **Heads up:** `docker-compose.yml` as-shipped is **dev-shaped** — it uses `uvicorn --reload`, a `./backend:/app` bind mount, and the Vite dev server for the dashboard. Do **not** run it unchanged on a public / production host. For any non-local deployment you **must** apply the overrides listed in the [Production hardening checklist](#production-hardening-checklist) below (drop `--reload`, drop bind mounts, swap the dashboard to an nginx-served build, set a real `JWT_SECRET`, put TLS in front). A future PR will split this into `docker-compose.yml` (dev) + `docker-compose.prod.yml` (prod overrides) so the prod path is one command.
+
+The entire stack ships as Docker containers. `docker-compose.yml` is the single source of truth for both local development and production-like environments. Nothing special is required to "deploy" — run the same compose file on any host with Docker Engine, **with the hardening overrides applied**.
 
 ### Services
 

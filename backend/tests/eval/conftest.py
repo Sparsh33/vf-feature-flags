@@ -1,11 +1,12 @@
 """Eval-package fixtures: stub redis_client.get() to avoid real connections."""
 
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 from unittest.mock import AsyncMock
 
 import pytest
 
 from app.database import redis_client as redis_module
+from app.services.flag.flag_model import Cohort, FlagConfig
 
 
 class _FakeRedis:
@@ -37,42 +38,31 @@ def fake_redis(monkeypatch) -> _FakeRedis:
 
 
 @pytest.fixture
-def mock_flag_repo(monkeypatch):
-    """Install a fake FlagRepository so eval_service._load_flag succeeds."""
-    import sys
-    import types
+def mock_flag_repo(monkeypatch) -> AsyncMock:
+    """Mock FlagService.get_flag_by_key_for_eval so eval_service._load_flag succeeds.
 
-    flag_pkg = sys.modules.get("app.services.flag")
-    if flag_pkg is None:
-        flag_pkg = types.ModuleType("app.services.flag")
-        sys.modules["app.services.flag"] = flag_pkg
-    repositories_pkg = types.ModuleType("app.services.flag.repositories")
-    sys.modules["app.services.flag.repositories"] = repositories_pkg
-    repo_module = types.ModuleType("app.services.flag.repositories.flag_repository")
-    fake_repo = AsyncMock()
-
-    class _FakeRepoCls:
-        def __init__(self) -> None:
-            self.get_by_key = fake_repo
-
-    repo_module.FlagRepository = _FakeRepoCls  # type: ignore[attr-defined]
-    sys.modules["app.services.flag.repositories.flag_repository"] = repo_module
-    yield fake_repo
-    sys.modules.pop("app.services.flag.repositories.flag_repository", None)
-    sys.modules.pop("app.services.flag.repositories", None)
+    Retains the historical ``mock_flag_repo`` name — now wraps the service layer
+    method instead of the repository, per the cross-domain boundary rule."""
+    fake_loader = AsyncMock()
+    monkeypatch.setattr(
+        "app.services.flag.flag_service.FlagService.get_flag_by_key_for_eval",
+        fake_loader,
+    )
+    return fake_loader
 
 
 @pytest.fixture
-def sample_flag() -> Dict[str, Any]:
-    return {
-        "id": "flag-abc",
-        "flag_key": "new_checkout",
-        "client_id": "client-1",
-        "status": "active",
-        "is_deleted": False,
-        "default_value": False,
-        "cohorts": [
-            {"id": "c1", "name": "on", "percentage": 50.0, "value": True},
-            {"id": "c2", "name": "off", "percentage": 50.0, "value": False},
+def sample_flag() -> FlagConfig:
+    return FlagConfig(
+        id="flag-abc",
+        flag_key="new_checkout",
+        client_id="client-1",
+        name="New Checkout",
+        status="active",
+        is_deleted=False,
+        default_value=False,
+        cohorts=[
+            Cohort(id="c1", name="on", percentage=50.0, value=True),
+            Cohort(id="c2", name="off", percentage=50.0, value=False),
         ],
-    }
+    )

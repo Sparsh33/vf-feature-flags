@@ -1,18 +1,16 @@
 """Celery tasks for recording analytics events asynchronously."""
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any, Dict
 
 from pymongo.errors import AutoReconnect, ConnectionFailure, NetworkTimeout
 
+from app.common.logging_helpers import LoggingData, log_error, log_warning
 from app.database.config import mongodb
 from app.services.analytics.analytics_model import AnalyticsEvent
 from app.services.analytics.repositories.analytics_repository import AnalyticsRepository
 from celery_app import celery
-
-logger = logging.getLogger(__name__)
 
 TRANSIENT_MONGO_ERRORS = (AutoReconnect, ConnectionFailure, NetworkTimeout)
 
@@ -32,10 +30,25 @@ def record_eval_event(self, payload: Dict[str, Any]) -> None:
     try:
         asyncio.run(_record_eval_event_async(payload))
     except TRANSIENT_MONGO_ERRORS as exc:
-        logger.warning("Transient mongo error recording analytics event: %s", exc)
+        log_warning(
+            LoggingData(
+                message="analytics.record_event.transient_mongo_error",
+                context={
+                    "flag_id": payload.get("flag_id"),
+                    "client_id": payload.get("client_id"),
+                    "error": str(exc),
+                },
+            )
+        )
         raise self.retry(exc=exc)
     except Exception as exc:
-        logger.exception("Failed to record analytics event: %s", exc)
+        log_error(
+            LoggingData(
+                message="analytics.record_event.failed",
+                context={"flag_id": payload.get("flag_id"), "client_id": payload.get("client_id")},
+                error=exc,
+            )
+        )
         raise
 
 

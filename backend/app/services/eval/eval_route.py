@@ -2,28 +2,11 @@
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Response
 
-from app.middleware.request_context import RequestContextManager
+from app.services.auth.dependencies import get_current_client
 from app.services.eval.eval_controller import handle_evaluate
 from app.services.eval.eval_model import EvalResponse
-
-try:
-    from app.services.auth.dependencies import get_current_client  # type: ignore
-except ImportError:  # pragma: no cover - TEMP until Phase 2A merges
-
-    async def get_current_client(
-        request: Request,
-        x_client_api_key: str = Header(default="", alias="X-Client-API-Key"),
-        x_client_id: str = Header(default="", alias="X-Client-Id"),
-    ):
-        # TEMP until Phase 2A merges — read X-Client-Id header directly
-        if not x_client_api_key and not x_client_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing api key")
-        client_id = x_client_id or x_client_api_key
-        RequestContextManager.set_client_id(client_id)
-        return client_id
-
 
 router = APIRouter()
 

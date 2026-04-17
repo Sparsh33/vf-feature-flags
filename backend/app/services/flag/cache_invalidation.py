@@ -1,12 +1,10 @@
 """Redis cache invalidation helper for flag evaluations."""
 
-import logging
-
+from app.common.logging_helpers import LoggingData, log_warning
 from app.database.redis_client import redis_client
 
 _CACHE_KEY_PREFIX = "ff"
 _SCAN_BATCH = 500
-_logger = logging.getLogger("vf_ff.flag.cache")
 
 
 async def invalidate_flag_cache(client_id: str, flag_key: str) -> None:
@@ -19,7 +17,12 @@ async def invalidate_flag_cache(client_id: str, flag_key: str) -> None:
     try:
         redis = redis_client.get()
     except RuntimeError:
-        _logger.warning("Redis unavailable; skipping cache invalidation for %s", pattern)
+        log_warning(
+            LoggingData(
+                message="flag.cache.redis_unavailable",
+                context={"pattern": pattern, "client_id": client_id, "flag_key": flag_key},
+            )
+        )
         return
     try:
         keys_to_delete = []
@@ -31,4 +34,14 @@ async def invalidate_flag_cache(client_id: str, flag_key: str) -> None:
         if keys_to_delete:
             await redis.delete(*keys_to_delete)
     except Exception as exc:
-        _logger.warning("Flag cache invalidation failed for %s: %s", pattern, exc)
+        log_warning(
+            LoggingData(
+                message="flag.cache.invalidation_failed",
+                context={
+                    "pattern": pattern,
+                    "client_id": client_id,
+                    "flag_key": flag_key,
+                    "error": str(exc),
+                },
+            )
+        )

@@ -32,6 +32,7 @@ async def nl_client(monkeypatch):
 @pytest.fixture
 async def unauth_nl_client(monkeypatch):
     """Client that does NOT override auth — exercises the real 401 path."""
+
     async def _fake_chat_turn(system_prompt, history, user_message):
         return ("hi", {}, False, 1)
 

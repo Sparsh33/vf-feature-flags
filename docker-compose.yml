@@ -46,12 +46,27 @@ services:
     environment:
       OLLAMA_HOST: "http://ollama:11434"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
+      OLLAMA_INIT_MAX_ATTEMPTS: "${OLLAMA_INIT_MAX_ATTEMPTS:-5}"
     entrypoint: ["/bin/sh", "-c"]
+    # Retry the pull up to OLLAMA_INIT_MAX_ATTEMPTS times with backoff so that a
+    # transient network blip during the ~4.7 GB download does not deadlock `api`
+    # (which waits on `service_completed_successfully`).
     command:
       - >
         echo "[ollama-init] pulling $$OLLAMA_MODEL (idempotent; no-op if already present)";
-        ollama pull "$$OLLAMA_MODEL" && echo "[ollama-init] done"
-    restart: "no"
+        attempt=1;
+        max_attempts=$${OLLAMA_INIT_MAX_ATTEMPTS:-5};
+        until ollama pull "$$OLLAMA_MODEL"; do
+          if [ "$$attempt" -ge "$$max_attempts" ]; then
+            echo "[ollama-init] giving up after $$attempt attempts";
+            exit 1;
+          fi;
+          echo "[ollama-init] pull failed (attempt $$attempt/$$max_attempts); retrying in 5s...";
+          attempt=$$((attempt + 1));
+          sleep 5;
+        done;
+        echo "[ollama-init] done"
+    restart: "on-failure:3"
 
   api:
     build:
@@ -66,7 +81,10 @@ services:
       MONGO_DB: "${MONGO_DB:-vf_feature_flags}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
       CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://redis:6379/1}"
-      JWT_SECRET: "${JWT_SECRET:-dev-insecure-change-me}"
+      # No default: compose fails fast if JWT_SECRET is unset, preventing a
+      # fresh clone from booting with a known, git-visible signing key.
+      # For local dev, set JWT_SECRET in .env (see .env.example).
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set in .env or the environment (no default; see .env.example)}"
       JWT_TTL_MINUTES: "${JWT_TTL_MINUTES:-1440}"
       CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:5173}"
       NL_PROVIDER: "${NL_PROVIDER:-ollama}"
@@ -99,7 +117,10 @@ services:
       MONGO_DB: "${MONGO_DB:-vf_feature_flags}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
       CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://redis:6379/1}"
-      JWT_SECRET: "${JWT_SECRET:-dev-insecure-change-me}"
+      # No default: compose fails fast if JWT_SECRET is unset, preventing a
+      # fresh clone from booting with a known, git-visible signing key.
+      # For local dev, set JWT_SECRET in .env (see .env.example).
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set in .env or the environment (no default; see .env.example)}"
       NL_PROVIDER: "${NL_PROVIDER:-ollama}"
       OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://ollama:11434}"
       OLLAMA_MODEL: "${OLLAMA_MODEL:-llama3.1:8b}"
