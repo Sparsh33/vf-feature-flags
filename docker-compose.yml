@@ -15,15 +15,20 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    # Require AUTH so Celery brokers cannot be hit by anything that happens
+    # to land on the compose network / exposed port without credentials.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-local-dev-redis}"]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-local-dev-redis}"
 
   ollama:
     image: ollama/ollama:latest
@@ -79,8 +84,8 @@ services:
       ENV: "${ENV:-local}"
       MONGO_URI: "${MONGO_URI:-mongodb://mongo:27017}"
       MONGO_DB: "${MONGO_DB:-vf_feature_flags}"
-      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
-      CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://redis:6379/1}"
+      REDIS_URL: "${REDIS_URL:-redis://:${REDIS_PASSWORD:-local-dev-redis}@redis:6379/0}"
+      CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-local-dev-redis}@redis:6379/1}"
       # No default: compose fails fast if JWT_SECRET is unset, preventing a
       # fresh clone from booting with a known, git-visible signing key.
       # For local dev, set JWT_SECRET in .env (see .env.example).
@@ -115,8 +120,8 @@ services:
       ENV: "${ENV:-local}"
       MONGO_URI: "${MONGO_URI:-mongodb://mongo:27017}"
       MONGO_DB: "${MONGO_DB:-vf_feature_flags}"
-      REDIS_URL: "${REDIS_URL:-redis://redis:6379/0}"
-      CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://redis:6379/1}"
+      REDIS_URL: "${REDIS_URL:-redis://:${REDIS_PASSWORD:-local-dev-redis}@redis:6379/0}"
+      CELERY_BROKER_URL: "${CELERY_BROKER_URL:-redis://:${REDIS_PASSWORD:-local-dev-redis}@redis:6379/1}"
       # No default: compose fails fast if JWT_SECRET is unset, preventing a
       # fresh clone from booting with a known, git-visible signing key.
       # For local dev, set JWT_SECRET in .env (see .env.example).
