@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.common.errors import FlagNotFound, InvalidCohortSum, ValidationError
+from app.common.logging_helpers import LoggingData, log_error
 from app.middleware.request_context import RequestContextManager
 from app.services.flag.cache_invalidation import invalidate_flag_cache
 from app.services.flag.flag_model import (

@@ -30,6 +30,11 @@ from app.services.auth.security import (
 )
 from app.services.auth.transactional import transactional
 
+# Pre-computed bcrypt hash of a fixed throwaway password. Running verify_password
+# against it when the email is unknown keeps login-path CPU cost constant and
+# closes the timing-oracle that leaks account existence.
+_DUMMY_PASSWORD_HASH = hash_password("__vf_ff_dummy_password_for_constant_time__")
+
 
 class AuthService:
     def __init__(
@@ -60,8 +65,7 @@ class AuthService:
             await self._clients.delete_by_id(client_record.id or "")
             log_error(
                 LoggingData(
-                    message="signup duplicate email",
-                    context={"email": request.email},
+                    message="signup.duplicate_email",
                     error=exc,
                 )
             )
@@ -86,11 +90,13 @@ class AuthService:
 
     async def login(self, request: LoginRequest) -> LoginResponse:
         user_record = await self._users.find_by_email(request.email)
-        if user_record is None:
-            log_error(LoggingData(message="login unknown email", context={"email": request.email}))
-            raise InvalidCredentials("invalid email or password")
-        if not verify_password(request.password, user_record.password_hash):
-            log_error(LoggingData(message="login bad password", context={"email": request.email}))
+        # Run bcrypt regardless of whether the user exists to keep the response
+        # time constant. This closes the timing-oracle that would otherwise leak
+        # account existence to an attacker enumerating emails.
+        candidate_hash = user_record.password_hash if user_record else _DUMMY_PASSWORD_HASH
+        password_ok = verify_password(request.password, candidate_hash)
+        if user_record is None or not password_ok:
+            log_error(LoggingData(message="login.invalid_credentials"))
             raise InvalidCredentials("invalid email or password")
         token = create_access_token(user_id=user_record.id or "", client_id=user_record.client_id)
         return LoginResponse(user=self._to_public_user(user_record), access_token=token)
